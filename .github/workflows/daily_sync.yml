@@ -1,0 +1,32 @@
+name: Daily Data Download and Sync
+
+on:
+  schedule:
+    # Run at 6:00 AM UTC daily (Adjust as needed)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  sync_data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+      - name: Run Sync Script
+        env:
+          CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
+          CPS_PASSWORD: ${{ secrets.CPS_PASSWORD }}
+          NAS_DOMAIN: ${{ secrets.NAS_DOMAIN }}
+          NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
+          NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
+          NAS_PORT: ${{ secrets.NAS_PORT }}
+          DAILY_PATH: ${{ secrets.DAILY_PATH }}
+        run: python automation.py
