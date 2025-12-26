@@ -3,7 +3,7 @@ name: Daily Data Download and Sync
 on:
   schedule:
     # Run at 6:00 AM UTC daily (Adjust as needed)
-    - cron: '5 1 * * *'
+    - cron: '20 2 * * *'
   workflow_dispatch: # Allows manual trigger
     inputs:
       manual_reason:
