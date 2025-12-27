@@ -1,0 +1,7 @@
+playwright
+python-dotenv
+synology-api
+pandas
+google-cloud-bigquery
+google-auth
+openpyxl

@@ -1,4 +1,0 @@
-playwright
-requests
-python-dotenv
-synology-api

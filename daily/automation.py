@@ -1,15 +1,27 @@
 import os
 import sys
 import time
-from datetime import datetime
+import pandas as pd
 from dotenv import load_dotenv
+import json
+
+from google.oauth2 import service_account
+from google.cloud import bigquery
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from playwright.sync_api import sync_playwright
 from synology_api.filestation import FileStation
 
 # Load environment variables
 load_dotenv()
 
-# Configuration
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+
+# config
 class Config:
     CPS_USERNAME = os.getenv("CPS_USERNAME")
     CPS_PASSWORD = os.getenv("CPS_PASSWORD")
@@ -19,6 +31,17 @@ class Config:
     NAS_PORT = 5001
     DAILY_PATH = os.getenv("DAILY_PATH")
     DOWNLOAD_DIR = "downloads"
+
+    GCP_SA_KEY = os.getenv("GCP_SA_KEY")
+    BQ_DATASET = os.getenv("BQ_DATASET")
+    BQ_TABLE_PO = os.getenv("BQ_TABLE_PO")
+    BQ_TABLE_RFM = os.getenv("BQ_TABLE_RFM")
+    BQ_TABLE_TL = os.getenv("BQ_TABLE_TL")
+
+#setting up gcp cridentials
+GCP_SA_KEY_JSON = json.loads(Config.GCP_SA_KEY)
+credentials = service_account.Credentials.from_service_account_info(GCP_SA_KEY_JSON)
+bq_client = bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 def get_synology_connection():
     return FileStation(
@@ -58,7 +81,7 @@ def upload_to_synology(local_path, fl):
     print(f"Uploading file to: {current_path}")
     
     # Generate timestamped filename to avoid overwrites
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = (datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%Y%m%d_%H%M%S"))
     filename = os.path.basename(local_path)
     base, ext = os.path.splitext(filename)
     new_filename = f"{base}_{timestamp}{ext}"
@@ -160,50 +183,97 @@ def download_po_report(page):
         print(f"PO download failed: {e}")
         raise e
 
+def upload_to_bq(file_path, table, dataset):
+
+    # read data and column cleaning
+    print(f"reading data from {file_path}")
+    df = pd.read_excel(file_path)
+
+    # clean column
+    df.columns = [
+        col.replace(" ", "_").replace("/", "_").replace("-", "_").replace("%", "pct")
+        for col in df.columns
+    ]
+
+    # config setup
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE", 
+        autodetect=True, 
+    )
+
+    # load to bq
+    project_id = bq_client.project 
+    table_id = f"{project_id}.{dataset}.{table}"
+    job = bq_client.load_table_from_dataframe(df, table_id, job_config=job_config)
+    
+    job.result()  
+    print(f"Successfully loaded {len(df)} rows to {table_id}")
+
 def main():
+    # creating folder
     if not os.path.exists(Config.DOWNLOAD_DIR):
         os.makedirs(Config.DOWNLOAD_DIR)
 
-    files_to_sync = []
+    rfm_path = tl_path = po_path = None
+
+    sync_registry = {} #changed to dict for easy tracking multiple file
 
     try:
         with sync_playwright() as p:
-            # Headless=True for CI/CD, change to False for debugging
-            browser = p.chromium.launch(headless=True)
+            # headless tracking, change to False for debugging
+            browser = p.chromium.launch(headless=False)
             page = browser.new_page()
             
             try:
                 login_to_cps(page)
                 
-                # 1. RFM
+                # 1. download rfm
                 rfm_path = download_simple_report(
                     page, 
                     "https://maa-admin.onlinepo.com/CPS/Forms/Project/BIZ_RequisitionEntryList.aspx", 
                     "Requisition Entry List.xlsx"
                 )
-                files_to_sync.append(rfm_path)
+                sync_registry["rfm"] = rfm_path
                 
-                # 2. Transfer List
+                # 2. download tl
                 tl_path = download_simple_report(
                     page,
                     "https://maa-admin.onlinepo.com/CPS/Forms/Project/BIZ_TransferList.aspx",
                     "Transfer List.xlsx",
                     export_selector="#ctl00_ctl00_ContentPlaceHolder1_ContentPlaceHolder1_ASPxRoundPanel3_mnuNAV_DXI6_PImg"
                 )
-                files_to_sync.append(tl_path)
+                sync_registry["tl"] = tl_path
                 
-                # 3. PO Entry List
+                # 3. download po
                 po_path = download_po_report(page)
-                files_to_sync.append(po_path)
+                sync_registry["po"] = po_path
                 
             finally:
                 browser.close()
-                
-        # Sync to Synology
-        if files_to_sync:
+
+        bq_sync_map = {
+            rfm_path: Config.BQ_TABLE_RFM,
+            tl_path: Config.BQ_TABLE_TL,
+            po_path: Config.BQ_TABLE_PO
+        }
+        DATASET_ID = Config.BQ_DATASET
+        # sync to bq
+        if sync_registry:
+            print("\nStarting BQ Sync...")
+            for file_path, table in bq_sync_map.items():
+                if file_path and table:
+                    try:
+                        upload_to_bq(file_path, table, DATASET_ID)
+                    except Exception as e:
+                        print(f"failed to sync {file_path} to BQ: {e}")
+                    else:
+                        print(f"synced {file_path} to BQ: {table}")
+
+        # sync to synology
+        if sync_registry:
             print("\nStarting Synology Sync...")
             fl = get_synology_connection()
-            for file_path in files_to_sync:
+            for file_path in sync_registry.values():
                 upload_to_synology(file_path, fl)
 
     except Exception as e:

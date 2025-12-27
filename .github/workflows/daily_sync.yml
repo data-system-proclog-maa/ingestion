@@ -22,9 +22,9 @@ jobs:
           python-version: '3.10'
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r daily/requirements.txt
           playwright install chromium --with-deps
-      - name: Run Sync Script
+      - name: Run Daily Ingestion Script
         env:
           CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
           CPS_PASSWORD: ${{ secrets.CPS_PASSWORD }}
@@ -33,4 +33,9 @@ jobs:
           NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
           NAS_PORT: ${{ secrets.NAS_PORT }}
           DAILY_PATH: ${{ secrets.DAILY_PATH }}
-        run: python automation.py
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          BQ_DATASET: ${{ secrets.BQ_DATASET }}
+          BQ_TABLE_PO: ${{ secrets.BQ_TABLE_PO }}
+          BQ_TABLE_RFM: ${{ secrets.BQ_TABLE_RFM }}
+          BQ_TABLE_TL: ${{ secrets.BQ_TABLE_TL }}
+        run: python daily/automation.py
