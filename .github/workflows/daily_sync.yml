@@ -1,4 +1,6 @@
 name: Daily Data Download and Sync
+permissions:
+  contents: read
 
 on:
   schedule:
