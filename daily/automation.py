@@ -15,11 +15,8 @@ from playwright.sync_api import sync_playwright
 from synology_api.filestation import FileStation
 
 # Load environment variables
-load_dotenv()
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
+load_dotenv()
 
 # config
 class Config:
@@ -32,15 +29,22 @@ class Config:
     DAILY_PATH = os.getenv("DAILY_PATH")
     DOWNLOAD_DIR = "downloads"
 
-    GCP_SA_KEY = os.getenv("GCP_SA_KEY")
+    GCP_SA_KEY = "gcp.json"
     BQ_DATASET = os.getenv("BQ_DATASET")
     BQ_TABLE_PO = os.getenv("BQ_TABLE_PO")
     BQ_TABLE_RFM = os.getenv("BQ_TABLE_RFM")
     BQ_TABLE_TL = os.getenv("BQ_TABLE_TL")
 
-#setting up gcp cridentials
-GCP_SA_KEY_JSON = json.loads(Config.GCP_SA_KEY)
-credentials = service_account.Credentials.from_service_account_info(GCP_SA_KEY_JSON)
+#setting up gcp credentials
+if os.getenv("GCP_SA_KEY"):
+    # for actions
+    gcp_sa_info = json.loads(os.getenv("GCP_SA_KEY"))
+else:
+    # for local
+    with open (Config.GCP_SA_KEY, "r", encoding="utf-8") as f:
+        gcp_sa_info = json.load(f)
+
+credentials = service_account.Credentials.from_service_account_info(gcp_sa_info)
 bq_client = bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 def get_synology_connection():
@@ -221,7 +225,7 @@ def main():
     try:
         with sync_playwright() as p:
             # headless tracking, change to False for debugging
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=False)
             page = browser.new_page()
             
             try:
