@@ -65,8 +65,8 @@ def upload_to_synology(local_path, fl):
         return None
 
     # Ensure path exists on Synology
-    now = datetime.now()
-    target_path_parts = [str(now.year), str(now.month), str(now.day)]
+    now = datetime.now(ZoneInfo("Asia/Jakarta"))
+    target_path_parts = now.strftime("%Y/%m/%d").split("/")
     
     print(f"Starting check at base path: {current_path}")
     for part in target_path_parts:
