@@ -28,6 +28,7 @@ jobs:
           playwright install chromium --with-deps
       - name: Run Daily Ingestion Script
         env:
+          PYTHONPATH: ${{ github.workspace }}
           CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
           CPS_PASSWORD: ${{ secrets.CPS_PASSWORD }}
           NAS_DOMAIN: ${{ secrets.NAS_DOMAIN }}

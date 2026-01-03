@@ -1,4 +1,7 @@
-def upload_to_bq(file_path, table, dataset):
+import pandas as pd
+from google.cloud import bigquery
+
+def upload_to_bq(bq_client, file_path, table, dataset):
 
     # read data and column cleaning
     print(f"reading data from {file_path}")

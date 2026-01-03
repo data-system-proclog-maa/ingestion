@@ -1,0 +1,43 @@
+name: Weekly Data Download and Process
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '0 6 * * 5'
+  workflow_dispatch: # Allows manual trigger
+    inputs:
+      manual_reason:
+        description: 'Reason for running manually'
+        required: false
+        default: 'Manual test'
+
+jobs:
+  sync_data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r daily/requirements.txt
+          # This installs the purchasing-weekly package globally in the runner
+          pip install git+https://github.com/data-system-proclog-maa/purchasing-weekly.git@main
+          playwright install chromium --with-deps
+      - name: Run Weekly Ingestion Script
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
+          CPS_PASSWORD: ${{ secrets.CPS_PASSWORD }}
+          NAS_DOMAIN: ${{ secrets.NAS_DOMAIN }}
+          NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
+          NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
+          NAS_PORT: ${{ secrets.NAS_PORT }}
+          WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
+          
+        run: python weekly/weekly_report.py

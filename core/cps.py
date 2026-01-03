@@ -1,8 +1,11 @@
+import os
+from core.config import CommonConfig
+
 def login_to_cps(page):
     print("logging in to cps...")
     page.goto("https://maa-admin.onlinepo.com/")
-    page.fill("#ASPxPanel2_txtUsername_I", Config.CPS_USERNAME)
-    page.fill("#ASPxPanel2_txtPassword_I", Config.CPS_PASSWORD)
+    page.fill("#ASPxPanel2_txtUsername_I", CommonConfig.CPS_USERNAME)
+    page.fill("#ASPxPanel2_txtPassword_I", CommonConfig.CPS_PASSWORD)
     page.click("#ASPxPanel2_btnSignIn_CD")
     page.wait_for_load_state("networkidle")
     print("logged in successfully.")
@@ -28,12 +31,12 @@ def download_rfm_tl(page, url, filename, export_selector=None):
              page.click("text=Export to Excel")
 
     download = download_info.value
-    path = os.path.join(Config.DOWNLOAD_DIR, filename)
+    path = os.path.join("downloads", filename)
     download.save_as(path)
     print(f"downloaded: {path}")
     return path
 
-def download_po_(page):
+def download_po(page):
     print("navigating to po entry list...")
     page.goto("https://maa-admin.onlinepo.com/CPS/Forms/Project/BIZ_POEntryList.aspx")
     page.wait_for_load_state("networkidle")
@@ -63,14 +66,15 @@ def download_po_(page):
     popout_arrow = "#ctl00_ctl00_ContentPlaceHolder1_ContentPlaceHolder1_ASPxRoundPanel3_menuPrintReq_DXI6_P"
     page.click(popout_arrow)
     
-    print("downloading po entry list (60s timeout)...")
+    print("downloading po entry list (100s timeout)...")
     try:
-        with page.expect_download(timeout=60000) as download_info:
+        with page.expect_download(timeout=100000) as download_info:
             page.click("text=Print to Excel", no_wait_after=True)
             print("server generating file...")
         
         download = download_info.value
-        path = os.path.join(Config.DOWNLOAD_DIR, "PO Entry List.xlsx")
+        download = download_info.value
+        path = os.path.join("downloads", "PO Entry List.xlsx")
         download.save_as(path)
         print(f"downloaded: {path}")
         return path
