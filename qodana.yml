@@ -1,0 +1,9 @@
+profile:
+  name: qodana.recommended
+
+projectType: python
+
+bootstrap: |
+  pip install -r daily/requirements.txt
+  pip install -r weekly/requirements.txt
+  pip install git+https://github.com/data-system-proclog-maa/purchasing-weekly.git@main
