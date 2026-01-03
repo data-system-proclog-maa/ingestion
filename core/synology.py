@@ -1,29 +1,3 @@
-from app.main import run_processor
-
-
-import os
-import sys
-import time
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from dotenv import load_dotenv
-from playwright.sync_api import sync_playwright
-from synology_api.filestation import FileStation
-
-# Load environment variables
-load_dotenv()
-
-# Configuration
-class Config:
-    CPS_USERNAME = os.getenv("CPS_USERNAME")
-    CPS_PASSWORD = os.getenv("CPS_PASSWORD")
-    NAS_DOMAIN = os.getenv("NAS_DOMAIN")
-    NAS_USERNAME = os.getenv("NAS_USERNAME")
-    NAS_PASSWORD = os.getenv("NAS_PASSWORD")
-    NAS_PORT = 5001
-    DAILY_PATH = os.getenv("DAILY_PATH")
-    DOWNLOAD_DIR = "downloads"
-
 def get_synology_connection():
     return FileStation(
         Config.NAS_DOMAIN,
@@ -42,8 +16,8 @@ def upload_to_synology(local_path, fl):
         return None
 
     # Ensure path exists on Synology
-    now = datetime.now()
-    target_path_parts = [str(now.year), str(now.month), str(now.day)]
+    now = datetime.now(ZoneInfo("Asia/Jakarta"))
+    target_path_parts = now.strftime("%Y/%m/%d").split("/")
     
     print(f"Starting check at base path: {current_path}")
     for part in target_path_parts:
@@ -82,8 +56,3 @@ def upload_to_synology(local_path, fl):
     except Exception as e:
         print(f"error during rename/upload: {e}")
         return None
-
-
-
-if __name__ == "__main__":
-    main()
