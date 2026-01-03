@@ -3,3 +3,7 @@
 
 /downloads
 !downloads/.gitkeep
+
+*.json
+
+__pycache__

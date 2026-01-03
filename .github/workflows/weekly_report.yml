@@ -1,10 +1,10 @@
-name: Daily Data Download and Sync
+name: Weekly Data Download and Process
 permissions:
   contents: read
 
 on:
   schedule:
-    - cron: '0 21 * * *'
+    - cron: '0 6 * * 5'
   workflow_dispatch: # Allows manual trigger
     inputs:
       manual_reason:
@@ -24,9 +24,12 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r daily/requirements.txt
+          # This installs the purchasing-weekly package globally in the runner
+          pip install git+https://github.com/data-system-proclog-maa/purchasing-weekly.git@main
           playwright install chromium --with-deps
-      - name: Run Daily Ingestion Script
+      - name: Run Weekly Ingestion Script
         env:
           PYTHONPATH: ${{ github.workspace }}
           CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
@@ -35,10 +38,6 @@ jobs:
           NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
           NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
           NAS_PORT: ${{ secrets.NAS_PORT }}
-          DAILY_PATH: ${{ secrets.DAILY_PATH }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          BQ_DATASET: ${{ secrets.BQ_DATASET }}
-          BQ_TABLE_PO: ${{ secrets.BQ_TABLE_PO }}
-          BQ_TABLE_RFM: ${{ secrets.BQ_TABLE_RFM }}
-          BQ_TABLE_TL: ${{ secrets.BQ_TABLE_TL }}
-        run: python daily/automation.py
+          WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
+          
+        run: python weekly/weekly_report.py
