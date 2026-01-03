@@ -73,7 +73,6 @@ def download_po(page):
             print("server generating file...")
         
         download = download_info.value
-        download = download_info.value
         path = os.path.join("downloads", "PO Entry List.xlsx")
         download.save_as(path)
         print(f"downloaded: {path}")
