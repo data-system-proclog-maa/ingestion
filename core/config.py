@@ -20,5 +20,11 @@ class dailyConfig(CommonConfig):
     BQ_TABLE_RFM = os.getenv("BQ_TABLE_RFM")
     BQ_TABLE_TL = os.getenv("BQ_TABLE_TL")
 
+class dailyScrapperConfig(dailyConfig):
+    SCRAPPER_PATH =os.getenv("SCRAPPER_PATH")
+
+    BQ_TABLE_PO_R = os.getenv("BQ_TABLE_PO_R")
+    BQ_TABLE_TL_R = os.getenv("BQ_TABLE_TL_R")
+
 class weeklyConfig(CommonConfig):
     WEEKLY_PATH = os.getenv("WEEKLY_PATH")

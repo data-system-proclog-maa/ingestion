@@ -26,6 +26,7 @@ jobs:
         run: |
           pip install -r daily/requirements.txt
           playwright install chromium --with-deps
+          pip install git+https://github.com/data-system-proclog-maa/scrapper-gacor.git@dev
       - name: Run Daily Ingestion Script
         env:
           PYTHONPATH: ${{ github.workspace }}
