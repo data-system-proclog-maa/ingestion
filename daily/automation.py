@@ -46,7 +46,7 @@ def main():
     try:
         with sync_playwright() as p:
             # headless tracking, change to False for debugging
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             
             try:
