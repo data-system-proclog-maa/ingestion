@@ -7,7 +7,6 @@ import json
 from google.oauth2 import service_account
 from google.cloud import bigquery
 
-
 from playwright.sync_api import sync_playwright
 from synology_api.filestation import FileStation
 
