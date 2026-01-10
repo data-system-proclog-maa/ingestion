@@ -53,11 +53,13 @@ def main():
         with sync_playwright() as p:
             # headless tracking, change to False for debugging
             browser = p.chromium.launch(headless=False)
+            context = browser.new_context()
             page = browser.new_page()
             
             try:
+                login_to_cps_mobile(context)
                 # 1. scrape po receive
-                po_receive_df = scrape_po_receive_data(page, 29875, 29881)
+                po_receive_df = scrape_po_receive(context, 1, 18200)
                 
                 # Sync to BQ
                 if bq_client:
@@ -66,18 +68,18 @@ def main():
                         job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", autodetect=True)
                         job = bq_client.load_table_from_dataframe(po_receive_df, table_id, job_config=job_config)
                         job.result()
-                        print(f"Synced PO Receive to BQ: {table_id}")
+                        print(f"synced PO receive to BQ: {table_id}")
                     except Exception as e:
-                        print(f"Failed to sync PO Receive to BQ: {e}")
+                        print(f"failed to sync PO receive to BQ: {e}")
 
-                # Save to CSV for Synology
-                po_receive_csv = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "po_receive_data.csv")
-                po_receive_df.to_csv(po_receive_csv, index=False)
-                sync_registry["po_receive"] = po_receive_csv
+                # Save to parquet for Synology - > was from csv
+                po_receive_loc = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "po_receive_data.parquet")
+                po_receive_df.to_parquet(po_receive_loc)
+                sync_registry["po_receive"] = po_receive_loc
 
 
                 # 2. scrape tl receive
-                tl_receive_df = scrape_tl_receive_data(page, 7800, 7850)
+                tl_receive_df = scrape_tl_receive(context, 1, 4105)
                 
                 # Sync to BQ
                 if bq_client:
@@ -90,29 +92,29 @@ def main():
                     except Exception as e:
                         print(f"Failed to sync TL Receive to BQ: {e}")
 
-                # Save to CSV for Synology
-                tl_receive_csv = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "tl_receive_data.csv")
-                tl_receive_df.to_csv(tl_receive_csv, index=False)
-                sync_registry["tl_receive"] = tl_receive_csv
+                # Save to parquet for Synology - > was from csv
+                tl_receive_loc = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "tl_receive_data.parquet")
+                tl_receive_df.to_parquet(tl_receive_loc)
+                sync_registry["tl_receive"] = tl_receive_loc
 
-                # 3. scrape inventory handover
-                inventory_handover_df = scrape_inventory_handover(page, 100, 110)
+            #     # 3. scrape inventory handover
+            #     inventory_handover_df = scrape_inventory(context, 100, 110)
                 
-                # Sync to BQ
-                if bq_client:
-                    try:
-                        table_id = f"{bq_client.project}.{dailyScrapperConfig.BQ_DATASET}.{dailyScrapperConfig.BQ_TABLE_INVENTORY_HO}"
-                        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", autodetect=True)
-                        job = bq_client.load_table_from_dataframe(inventory_handover_df, table_id, job_config=job_config)
-                        job.result()
-                        print(f"Synced Inventory Handover to BQ: {table_id}")
-                    except Exception as e:
-                        print(f"Failed to sync Inventory Handover to BQ: {e}")
+            #     # Sync to BQ
+            #     if bq_client:
+            #         try:
+            #             table_id = f"{bq_client.project}.{dailyScrapperConfig.BQ_DATASET}.{dailyScrapperConfig.BQ_TABLE_INVENTORY_HO}"
+            #             job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", autodetect=True)
+            #             job = bq_client.load_table_from_dataframe(inventory_handover_df, table_id, job_config=job_config)
+            #             job.result()
+            #             print(f"Synced Inventory Handover to BQ: {table_id}")
+            #         except Exception as e:
+            #             print(f"Failed to sync Inventory Handover to BQ: {e}")
 
-                # Save to CSV for Synology
-                inventory_handover_csv = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "inventory_handover_data.csv")
-                inventory_handover_df.to_csv(inventory_handover_csv, index=False)
-                sync_registry["inventory_handover"] = inventory_handover_csv
+            #     # Save to CSV for Synology
+            #     inventory_handover_csv = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "inventory_handover_data.csv")
+            #     inventory_handover_df.to_csv(inventory_handover_csv, index=False)
+            #     sync_registry["inventory_handover"] = inventory_handover_csv
 
             finally:
                 browser.close()
