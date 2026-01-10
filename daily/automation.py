@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 from dotenv import load_dotenv
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 
 from google.oauth2 import service_account
@@ -15,7 +16,6 @@ from core.cps import login_to_cps, download_rfm_tl, download_po
 from core.synology import get_synology_connection, daily_upload_to_synology
 from core.bigquery import upload_to_bq
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Load environment variables
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +27,7 @@ if os.getenv("GCP_SA_KEY"):
     gcp_sa_info = json.loads(os.getenv("GCP_SA_KEY"))
 else:
     # for local
-    with open (dailyConfig.GCP_SA_KEY, "r", encoding="utf-8") as f:
+    with open (os.path.join(BASE_DIR, dailyConfig.GCP_SA_KEY), "r", encoding="utf-8") as f:
         gcp_sa_info = json.load(f)
 
 credentials = service_account.Credentials.from_service_account_info(gcp_sa_info)

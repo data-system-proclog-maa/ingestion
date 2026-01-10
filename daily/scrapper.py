@@ -1,11 +1,10 @@
 import os
 import sys
-# add project root to PYTHONPATH
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(PROJECT_ROOT)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # put this on top of the file, before importing other module
+
 import pandas as pd
 from dotenv import load_dotenv
-load_dotenv()
+
 import json
 
 from google.oauth2 import service_account
@@ -19,30 +18,29 @@ from core.config import dailyScrapperConfig
 from core.cps import login_to_cps
 from core.synology import get_synology_connection, daily_upload_to_synology
 from core.bigquery import upload_to_bq
-from core.scrapefunction import scrape_po_receive_data, scrape_tl_receive_data, scrape_inventory_handover
+from core.scrapefunction import login_to_cps_mobile, scrape_po_receive, scrape_tl_receive, scrape_inventory
 
 
-# --- resolve paths correctly ---
+
+
+# Load environment variables
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv()
 
+
+#setting up gcp credentials
 if os.getenv("GCP_SA_KEY"):
-    # GitHub Actions / CI
+    # for actions
     gcp_sa_info = json.loads(os.getenv("GCP_SA_KEY"))
 else:
-    # Local dev
-    gcp_key_path = os.path.join(BASE_DIR, dailyScrapperConfig.GCP_SA_KEY)
-
-    if not os.path.exists(gcp_key_path):
-        raise FileNotFoundError(f"GCP key not found at: {gcp_key_path}")
-
-    with open(gcp_key_path, "r", encoding="utf-8") as f:
+    # for local
+    with open (os.path.join(BASE_DIR, dailyScrapperConfig.GCP_SA_KEY), "r", encoding="utf-8") as f:
         gcp_sa_info = json.load(f)
 
 credentials = service_account.Credentials.from_service_account_info(gcp_sa_info)
 bq_client = bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 def main():
-    print("Script started...")
     # creating folder
     if not os.path.exists(dailyScrapperConfig.DOWNLOAD_DIR):
         os.makedirs(dailyScrapperConfig.DOWNLOAD_DIR)
