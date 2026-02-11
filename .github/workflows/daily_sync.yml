@@ -3,8 +3,8 @@ permissions:
   contents: read
 
 on:
-  #schedule:
-    #- cron: '0 21 * * *'
+  schedule:
+    - cron: '0 21 * * *'
   workflow_dispatch: # Allows manual trigger
     inputs:
       manual_reason:

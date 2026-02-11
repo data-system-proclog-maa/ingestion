@@ -59,7 +59,7 @@ def main():
             try:
                 login_to_cps_mobile(context)
                 # 1. scrape po receive
-                po_receive_df = scrape_po_receive(context, 1, 18200)
+                po_receive_df = scrape_po_receive(context, 18201, 30339)
                 
                 # Sync to BQ
                 if bq_client:
@@ -79,7 +79,7 @@ def main():
 
 
                 # 2. scrape tl receive
-                tl_receive_df = scrape_tl_receive(context, 1, 4105)
+                tl_receive_df = scrape_tl_receive(context, 4106, 7865)
                 
                 # Sync to BQ
                 if bq_client:
