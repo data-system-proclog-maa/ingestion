@@ -1,0 +1,44 @@
+name: Daily Data Scrape and Sync
+permissions:
+  contents: read
+
+on:
+  #schedule: #will check later, need to test first
+    #- cron: '0 21 * * *'
+  workflow_dispatch: # Allows manual trigger
+    inputs:
+      manual_reason:
+        description: 'Reason for running manually'
+        required: false
+        default: 'Manual test'
+
+jobs:
+  sync_data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install -r daily/requirements.txt
+          playwright install chromium --with-deps
+      - name: Run Daily Ingestion Script
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
+          CPS_PASSWORD: ${{ secrets.CPS_PASSWORD }}
+          NAS_DOMAIN: ${{ secrets.NAS_DOMAIN }}
+          NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
+          NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
+          NAS_PORT: ${{ secrets.NAS_PORT }}
+          DAILY_PATH: ${{ secrets.DAILY_PATH }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          BQ_DATASET: ${{ secrets.BQ_DATASET }}
+          BQ_TABLE_PO: ${{ secrets.BQ_TABLE_PO }}
+          BQ_TABLE_RFM: ${{ secrets.BQ_TABLE_RFM }}
+          BQ_TABLE_TL: ${{ secrets.BQ_TABLE_TL }}
+        run: python daily/scrapper.py

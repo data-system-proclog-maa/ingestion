@@ -1,0 +1,20 @@
+[site-info]
+
+source_directories = ["."]
+
+[filtering]
+ignore_paths = [
+    ".*/.venv/.*", 
+    ".*/data/.*",
+    ".*/.agent/.*"
+]
+
+[performance]
+max_workers = 1
+
+[checking]
+include_patterns = [
+    "core/.*",
+    "daily/.*",
+    "weekly/.*"
+]
