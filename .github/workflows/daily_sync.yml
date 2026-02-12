@@ -46,4 +46,6 @@ jobs:
           BQ_TABLE_PO_R: ${{ secrets.BQ_TABLE_PO_R }}
           BQ_TABLE_TL_R: ${{ secrets.BQ_TABLE_TL_R }}
           BQ_TABLE_INVENTORY_HO: ${{ secrets.BQ_TABLE_INVENTORY_HO }}
+
+          WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
         run: python daily/automation.py
