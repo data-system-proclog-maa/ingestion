@@ -34,6 +34,7 @@ jobs:
           NAS_DOMAIN: ${{ secrets.NAS_DOMAIN }}
           NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
           NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
+          SCRAPPER_PATH: ${{ secrets.SCRAPPER_PATH }}
           NAS_PORT: ${{ secrets.NAS_PORT }}
           DAILY_PATH: ${{ secrets.DAILY_PATH }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
