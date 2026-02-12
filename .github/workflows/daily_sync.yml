@@ -41,4 +41,5 @@ jobs:
           BQ_TABLE_PO: ${{ secrets.BQ_TABLE_PO }}
           BQ_TABLE_RFM: ${{ secrets.BQ_TABLE_RFM }}
           BQ_TABLE_TL: ${{ secrets.BQ_TABLE_TL }}
+          SCRAPPER_PATH: ${{ secrets.SCRAPPER_PATH }}
         run: python daily/automation.py
