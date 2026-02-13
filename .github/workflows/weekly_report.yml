@@ -38,6 +38,18 @@ jobs:
           NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
           NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
           NAS_PORT: ${{ secrets.NAS_PORT }}
+          DAILY_PATH: ${{ secrets.DAILY_PATH }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          BQ_DATASET: ${{ secrets.BQ_DATASET }}
+          BQ_TABLE_PO: ${{ secrets.BQ_TABLE_PO }}
+          BQ_TABLE_RFM: ${{ secrets.BQ_TABLE_RFM }}
+          BQ_TABLE_TL: ${{ secrets.BQ_TABLE_TL }}
+
+          SCRAPPER_PATH: ${{ secrets.SCRAPPER_PATH }}
+          BQ_TABLE_PO_R: ${{ secrets.BQ_TABLE_PO_R }}
+          BQ_TABLE_TL_R: ${{ secrets.BQ_TABLE_TL_R }}
+          BQ_TABLE_INVENTORY_HO: ${{ secrets.BQ_TABLE_INVENTORY_HO }}
+
           WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
           
         run: python weekly/weekly_report.py
