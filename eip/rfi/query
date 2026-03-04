@@ -1,0 +1,14 @@
+SELECT 
+    prd.nama_barang,
+    prd.detail_specification, 
+    prd.qty, 
+    prd.uom,
+    pc.nama_category, 
+    prd.unit_price, 
+    ppr.created_request, 
+    ppr.closed_date 
+FROM proc_request_details prd 
+JOIN proc_category pc 
+    ON prd.category = pc.id_category 
+JOIN proc_purchase_requests ppr 
+    ON prd.id_proc_ch = ppr.id_proc_ch;
