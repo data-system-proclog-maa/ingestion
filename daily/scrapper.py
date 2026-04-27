@@ -17,7 +17,7 @@ from synology_api.filestation import FileStation
 from core.config import dailyScrapperConfig
 from core.cps import login_to_cps
 from core.synology import get_synology_connection, daily_upload_to_synology
-from core.bigquery import upload_to_bq
+from core.bigquery import upload_to_bq, load_dataframe_to_bq
 from core.scrapefunction import login_to_cps_mobile, scrape_po_receive, scrape_tl_receive, scrape_inventory
 
 
@@ -63,14 +63,12 @@ def main():
                 
                 # Sync to BQ
                 if bq_client:
-                    try:
-                        table_id = f"{bq_client.project}.{dailyScrapperConfig.BQ_DATASET}.{dailyScrapperConfig.BQ_TABLE_PO_R}"
-                        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", autodetect=True)
-                        job = bq_client.load_table_from_dataframe(po_receive_df, table_id, job_config=job_config)
-                        job.result()
-                        print(f"synced PO receive to BQ: {table_id}")
-                    except Exception as e:
-                        print(f"failed to sync PO receive to BQ: {e}")
+                    load_dataframe_to_bq(
+                        bq_client, 
+                        po_receive_df, 
+                        dailyScrapperConfig.BQ_TABLE_PO_R, 
+                        dailyScrapperConfig.BQ_DATASET
+                    )
 
                 # Save to parquet for Synology - > was from csv
                 po_receive_loc = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "po_receive_data.parquet")
@@ -83,14 +81,12 @@ def main():
                 
                 # Sync to BQ
                 if bq_client:
-                    try:
-                        table_id = f"{bq_client.project}.{dailyScrapperConfig.BQ_DATASET}.{dailyScrapperConfig.BQ_TABLE_TL_R}"
-                        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE", autodetect=True)
-                        job = bq_client.load_table_from_dataframe(tl_receive_df, table_id, job_config=job_config)
-                        job.result()
-                        print(f"Synced TL Receive to BQ: {table_id}")
-                    except Exception as e:
-                        print(f"Failed to sync TL Receive to BQ: {e}")
+                    load_dataframe_to_bq(
+                        bq_client, 
+                        tl_receive_df, 
+                        dailyScrapperConfig.BQ_TABLE_TL_R, 
+                        dailyScrapperConfig.BQ_DATASET
+                    )
 
                 # Save to parquet for Synology - > was from csv
                 tl_receive_loc = os.path.join(dailyScrapperConfig.DOWNLOAD_DIR, "tl_receive_data.parquet")
