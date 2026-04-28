@@ -48,4 +48,5 @@ jobs:
           BQ_TABLE_INVENTORY_HO: ${{ secrets.BQ_TABLE_INVENTORY_HO }}
 
           WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
+          BASE_LAKE: ${{ secrets.BASE_LAKE }}
         run: python daily/scrapper.py
