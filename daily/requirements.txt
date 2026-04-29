@@ -7,3 +7,5 @@ google-cloud-bigquery
 google-auth
 openpyxl
 pyarrow
+sqlalchemy
+psycopg2-binary

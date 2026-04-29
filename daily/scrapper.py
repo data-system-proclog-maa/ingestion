@@ -18,6 +18,8 @@ from core.config import dailyScrapperConfig
 from core.cps import login_to_cps
 from core.synology import get_synology_connection, daily_upload_to_synology
 from core.bigquery import upload_to_bq, load_dataframe_to_bq
+from core.postgres import load_dataframe_to_postgres
+
 from core.scrapefunction import login_to_cps_mobile, scrape_po_receive, scrape_tl_receive, scrape_inventory
 
 
@@ -114,6 +116,26 @@ def main():
 
             finally:
                 browser.close()
+
+        # sync to postgres
+        if sync_registry and dailyScrapperConfig.SERVING_DB:
+            print("\nStarting Postgres (Neon) Sync...")
+            try:
+                from sqlalchemy import create_engine
+                engine = create_engine(dailyScrapperConfig.SERVING_DB)
+                
+                # Sync PO Receive
+                if 'po_receive_df' in locals():
+                    load_dataframe_to_postgres(engine, po_receive_df, dailyScrapperConfig.BQ_TABLE_PO_R)
+                
+                # Sync TL Receive
+                if 'tl_receive_df' in locals():
+                    load_dataframe_to_postgres(engine, tl_receive_df, dailyScrapperConfig.BQ_TABLE_TL_R)
+                    
+            except ImportError:
+                print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")
+            except Exception as e:
+                print(f"Postgres connection error: {e}")
 
         # sync to synology
         if sync_registry:

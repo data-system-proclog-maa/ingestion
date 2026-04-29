@@ -52,5 +52,6 @@ jobs:
 
           WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
           BASE_LAKE: ${{ secrets.BASE_LAKE }}
+          SERVING_DB: ${{ secrets.SERVING_DB }}
           
         run: python weekly/weekly_report.py

@@ -75,6 +75,25 @@ def main():
         sync_registry["rfm_processed"] = processed_output['rfm_output_path']
         sync_registry["po_processed"] = processed_output['po_output_path']
 
+        # sync to postgres
+        if sync_registry and weeklyConfig.SERVING_DB:
+            print("\nStarting Postgres (Neon) Sync for Weekly Reports...")
+            try:
+                from sqlalchemy import create_engine
+                from core.postgres import upload_to_postgres
+                
+                engine = create_engine(weeklyConfig.SERVING_DB)
+                
+                if os.path.exists(sync_registry["rfm_processed"]):
+                    upload_to_postgres(engine, sync_registry["rfm_processed"], "weekly_rfm_processed")
+                
+                if os.path.exists(sync_registry["po_processed"]):
+                    upload_to_postgres(engine, sync_registry["po_processed"], "weekly_po_processed")
+                    
+            except ImportError:
+                print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")
+            except Exception as e:
+                print(f"Postgres connection error: {e}")
 
         # sync to synology
         if sync_registry:

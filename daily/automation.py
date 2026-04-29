@@ -93,6 +93,26 @@ def main():
                     else:
                         print(f"synced {file_path} to BQ: {table}")
 
+        # sync to postgres
+        if sync_registry and dailyConfig.SERVING_DB:
+            print("\nStarting Postgres (Neon) Sync...")
+            try:
+                from sqlalchemy import create_engine
+                from core.postgres import upload_to_postgres
+                
+                engine = create_engine(dailyConfig.SERVING_DB)
+                for file_path, table in bq_sync_map.items():
+                    if file_path and table:
+                        try:
+                            # Load to public schema, replacing existing table
+                            upload_to_postgres(engine, file_path, table)
+                        except Exception as e:
+                            print(f"Failed to sync {file_path} to Postgres: {e}")
+            except ImportError:
+                print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")
+            except Exception as e:
+                print(f"Postgres connection error: {e}")
+
         # sync to synology
         if sync_registry:
             print("\nStarting Synology Sync...")

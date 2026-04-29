@@ -26,6 +26,7 @@ class dailyConfig(CommonConfig):
     BQ_TABLE_PO: str  = os.environ["BQ_TABLE_PO"]
     BQ_TABLE_RFM: str  = os.environ["BQ_TABLE_RFM"]
     BQ_TABLE_TL: str  = os.environ["BQ_TABLE_TL"]
+    SERVING_DB: str = os.getenv("SERVING_DB", "") # Added for Neon Postgres
 
 class dailyScrapperConfig(dailyConfig):
     """
@@ -36,9 +37,11 @@ class dailyScrapperConfig(dailyConfig):
     BQ_TABLE_PO_R: str  = os.environ["BQ_TABLE_PO_R"]
     BQ_TABLE_TL_R: str  = os.environ["BQ_TABLE_TL_R"]
     BQ_TABLE_INVENTORY_HO: str  = os.environ["BQ_TABLE_INVENTORY_HO"]
+    SERVING_DB: str = os.getenv("SERVING_DB", "") # Added for Neon Postgres
 
 class weeklyConfig(CommonConfig):
     """
     config for weekly process
     """
     WEEKLY_PATH: str  = os.environ["WEEKLY_PATH"]
+    SERVING_DB: str = os.getenv("SERVING_DB", "")
