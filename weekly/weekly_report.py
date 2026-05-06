@@ -85,10 +85,10 @@ def main():
                 engine = create_engine(weeklyConfig.SERVING_DB)
                 
                 if os.path.exists(sync_registry["rfm_processed"]):
-                    upload_to_postgres(engine, sync_registry["rfm_processed"], "weekly_rfm_processed")
+                    upload_to_postgres(engine, sync_registry["rfm_processed"], "rfm_processed")
                 
                 if os.path.exists(sync_registry["po_processed"]):
-                    upload_to_postgres(engine, sync_registry["po_processed"], "weekly_po_processed")
+                    upload_to_postgres(engine, sync_registry["po_processed"], "po_processed")
                     
             except ImportError:
                 print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")

@@ -14,7 +14,18 @@ from synology_api.filestation import FileStation
 from core.config import dailyConfig
 from core.cps import login_to_cps, download_rfm_tl, download_po
 from core.synology import get_synology_connection, daily_upload_to_synology
-from core.bigquery import upload_to_bq
+from core.bigquery import upload_to_bq, load_dataframe_to_bq
+from core.postgres import upload_to_postgres, load_dataframe_to_postgres
+from daily.transform.silver_po import transform_po_silver
+from daily.transform.gold_logistics_summary import transform_gold_logistics
+
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+try:
+    from app.main import run as run_processor
+except ImportError:
+    run_processor = None
 
 
 # Load environment variables
@@ -32,6 +43,11 @@ else:
 
 credentials = service_account.Credentials.from_service_account_info(gcp_sa_info)
 bq_client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+
+def get_rolling_dates():
+    end_dt = datetime.now(ZoneInfo("Asia/Jakarta"))
+    start_dt = end_dt - timedelta(days=7)
+    return start_dt.strftime("%d-%m-%Y"), end_dt.strftime("%d-%m-%Y")
 
 def main():
     # creating folder
@@ -75,23 +91,108 @@ def main():
             finally:
                 browser.close()
 
+        # --- PRE-PROCESS: Convert Excel to Parquet for Speed ---
+        parquet_sync_map = {}
+        if sync_registry:
+            print("\nConverting Excel to Parquet for internal speed...")
+            for key, excel_path in sync_registry.items():
+                if excel_path and excel_path.endswith('.xlsx'):
+                    pq_path = excel_path.replace('.xlsx', '.parquet')
+                    try:
+                        pd.read_excel(excel_path).to_parquet(pq_path)
+                        parquet_sync_map[excel_path] = pq_path
+                        print(f"Converted {key} to Parquet.")
+                    except Exception as e:
+                        print(f"Failed to convert {key} to Parquet: {e}")
+
+        # --- TRANSFORMATION LAYER (SILVER) ---
+        silver_po_df = None
+        if po_path:
+            # Use the Parquet version if available
+            transform_po_path = parquet_sync_map.get(po_path, po_path)
+            transform_tl_path = parquet_sync_map.get(tl_path, tl_path)
+            
+            print("\nStarting Silver Transformation for PO List...")
+            try:
+                silver_po_df = transform_po_silver(transform_po_path, transform_tl_path)
+            except Exception as e:
+                print(f"Failed to transform PO to Silver: {e}")
+
+        # --- DAILY ANALYSIS PROCESSING (Previously Weekly) ---
+        processed_po_df = None
+        if run_processor and po_path and rfm_path:
+            print("\nStarting Daily Analysis Processing (run_processor)...")
+            try:
+                start_str, end_str = get_rolling_dates()
+                processed_output = run_processor(
+                    po_file = po_path,
+                    rfm_file = rfm_path,
+                    start_date = start_str,
+                    end_date = end_str,
+                    output_dir = dailyConfig.DOWNLOAD_DIR
+                )
+                if processed_output and 'po_output_path' in processed_output:
+                    processed_po_df = pd.read_excel(processed_output['po_output_path'])
+                    print("Daily analysis processing complete.")
+            except Exception as e:
+                print(f"Failed to run daily analysis processor: {e}")
+
         bq_sync_map = {
             rfm_path: dailyConfig.BQ_TABLE_RFM,
             tl_path: dailyConfig.BQ_TABLE_TL,
             po_path: dailyConfig.BQ_TABLE_PO
         }
         DATASET_ID = dailyConfig.BQ_DATASET
+        
         # sync to bq
         if sync_registry:
             print("\nStarting BQ Sync...")
             for file_path, table in bq_sync_map.items():
                 if file_path and table:
+                    # Use Parquet path for BQ upload if it exists
+                    upload_path = parquet_sync_map.get(file_path, file_path)
                     try:
-                        upload_to_bq(bq_client, file_path, table, DATASET_ID)
+                        upload_to_bq(bq_client, upload_path, table, DATASET_ID)
                     except Exception as e:
                         print(f"failed to sync {file_path} to BQ: {e}")
                     else:
                         print(f"synced {file_path} to BQ: {table}")
+
+            # Sync Processed table to BQ (Now containing both Silver and Analysis data)
+            if processed_po_df is not None:
+                # Standardize columns of the processed output
+                processed_po_df.columns = [
+                    c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct').lower() 
+                    for c in processed_po_df.columns
+                ]
+
+                # If silver exists, merge the extra columns (all_pic, pt, aging, etc.) into the processed data
+                if silver_po_df is not None:
+                    print("Merging Silver transformations into Processed data...")
+                    # Identify columns in silver that aren't already in processed (except keys)
+                    extra_cols = [c for c in silver_po_df.columns if c not in processed_po_df.columns or c in ['po_number', 'item_id']]
+                    # Merge on PO_Number and Item_ID
+                    processed_po_df = pd.merge(
+                        processed_po_df, 
+                        silver_po_df[extra_cols], 
+                        on=['po_number', 'item_id'], 
+                        how='left'
+                    )
+
+                processed_table = "po_processed"
+                try:
+                    load_dataframe_to_bq(bq_client, processed_po_df, processed_table, DATASET_ID)
+                except Exception as e:
+                    print(f"failed to sync Master Processed PO to BQ: {e}")
+
+                # --- GOLD LAYER: Logistics Summary ---
+                print("\nStarting Gold Transformation for Logistics Summary...")
+                try:
+                    gold_logistics_df = transform_gold_logistics(processed_po_df)
+                    if gold_logistics_df is not None:
+                        load_dataframe_to_bq(bq_client, gold_logistics_df, "gold_logistics_summary", DATASET_ID)
+                except Exception as e:
+                    print(f"Failed to transform/sync Gold Logistics to BQ: {e}")
 
         # sync to postgres
         if sync_registry and dailyConfig.SERVING_DB:
@@ -103,11 +204,29 @@ def main():
                 engine = create_engine(dailyConfig.SERVING_DB)
                 for file_path, table in bq_sync_map.items():
                     if file_path and table:
+                        # Use Parquet path for Postgres upload if it exists
+                        upload_path = parquet_sync_map.get(file_path, file_path)
                         try:
                             # Load to public schema, replacing existing table
-                            upload_to_postgres(engine, file_path, table)
+                            upload_to_postgres(engine, upload_path, table)
                         except Exception as e:
                             print(f"Failed to sync {file_path} to Postgres: {e}")
+
+                # Sync Master Processed table to Postgres
+                if processed_po_df is not None:
+                    processed_table = "po_processed"
+                    try:
+                        load_dataframe_to_postgres(engine, processed_po_df, processed_table)
+                    except Exception as e:
+                        print(f"Failed to sync Master Processed PO to Postgres: {e}")
+
+                # Sync Gold Logistics table to Postgres
+                if 'gold_logistics_df' in locals() and gold_logistics_df is not None:
+                    try:
+                        load_dataframe_to_postgres(engine, gold_logistics_df, "gold_logistics_summary")
+                    except Exception as e:
+                        print(f"Failed to sync Gold Logistics to Postgres: {e}")
+
             except ImportError:
                 print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")
             except Exception as e:
