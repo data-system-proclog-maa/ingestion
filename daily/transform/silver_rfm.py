@@ -18,15 +18,7 @@ def transform_rfm_silver(raw_path):
     # Load RFM data
     print(f"Reading RFM data from {raw_path}...")
     safe_raw_path = raw_path.replace('\\', '/')
-    if raw_path.endswith('.parquet'):
-        con.execute(f"CREATE OR REPLACE VIEW df_rfm AS SELECT * FROM read_parquet('{safe_raw_path}')")
-    else:
-        df_rfm = pd.read_excel(raw_path)
-        df_rfm.columns = [
-            c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') 
-            for c in df_rfm.columns
-        ]
-        con.register('df_rfm', df_rfm)
+    con.execute(f"CREATE OR REPLACE VIEW df_rfm AS SELECT * FROM read_parquet('{safe_raw_path}')")
 
     # Fetch Normalisasi Google Sheet
     print("Fetching RFM Normalisasi from Google Sheets...")

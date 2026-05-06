@@ -134,6 +134,15 @@ def main():
             except Exception as e:
                 print(f"Failed to transform PO: {e}")
 
+        # --- GOLD LAYER: Logistics Summary ---
+        gold_logistics_df = None
+        if processed_po_df is not None:
+            print("\nStarting Gold Transformation for Logistics Summary...")
+            try:
+                gold_logistics_df = transform_gold_logistics(processed_po_df)
+            except Exception as e:
+                print(f"Failed to transform Gold Logistics: {e}")
+
         bq_sync_map = {
             rfm_path: dailyConfig.BQ_TABLE_RFM,
             tl_path: dailyConfig.BQ_TABLE_TL,
@@ -143,79 +152,58 @@ def main():
         
         # sync to bq
         if sync_registry:
-            print("\nStarting BQ Sync...")
-            for file_path, table in bq_sync_map.items():
-                if file_path and table:
-                    # Use Parquet path for BQ upload if it exists
-                    upload_path = parquet_sync_map.get(file_path, file_path)
+            print("\nStarting BQ Sync (Parallel)...")
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                bq_futures = []
+                for file_path, table in bq_sync_map.items():
+                    if file_path and table:
+                        upload_path = parquet_sync_map.get(file_path, file_path)
+                        bq_futures.append(executor.submit(upload_to_bq, bq_client, upload_path, table, DATASET_ID))
+
+                # Sync Processed tables to BQ
+                if processed_po_df is not None:
+                    bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, processed_po_df, "po_processed", DATASET_ID))
+                if processed_rfm_df is not None:
+                    bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, processed_rfm_df, "rfm_processed", DATASET_ID))
+                if gold_logistics_df is not None:
+                    bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, gold_logistics_df, "gold_logistics_summary", DATASET_ID))
+                
+                for future in concurrent.futures.as_completed(bq_futures):
                     try:
-                        upload_to_bq(bq_client, upload_path, table, DATASET_ID)
+                        future.result()
                     except Exception as e:
-                        print(f"failed to sync {file_path} to BQ: {e}")
-                    else:
-                        print(f"synced {file_path} to BQ: {table}")
-
-            # Sync Processed table to BQ
-            if processed_po_df is not None:
-                processed_table = "po_processed"
-                try:
-                    load_dataframe_to_bq(bq_client, processed_po_df, processed_table, DATASET_ID)
-                except Exception as e:
-                    print(f"failed to sync Master Processed PO to BQ: {e}")
-
-            if processed_rfm_df is not None:
-                try:
-                    load_dataframe_to_bq(bq_client, processed_rfm_df, "rfm_processed", DATASET_ID)
-                except Exception as e:
-                    print(f"failed to sync Master Processed RFM to BQ: {e}")
-
-                # --- GOLD LAYER: Logistics Summary ---
-                print("\nStarting Gold Transformation for Logistics Summary...")
-                try:
-                    gold_logistics_df = transform_gold_logistics(processed_po_df)
-                    if gold_logistics_df is not None:
-                        load_dataframe_to_bq(bq_client, gold_logistics_df, "gold_logistics_summary", DATASET_ID)
-                except Exception as e:
-                    print(f"Failed to transform/sync Gold Logistics to BQ: {e}")
+                        print(f"BQ sync task failed: {e}")
 
         # sync to postgres
         if sync_registry and dailyConfig.SERVING_DB:
-            print("\nStarting Postgres (Neon) Sync...")
+            print("\nStarting Postgres (Neon) Sync (Parallel)...")
             try:
                 from sqlalchemy import create_engine
                 from core.postgres import upload_to_postgres
                 
                 engine = create_engine(dailyConfig.SERVING_DB)
-                for file_path, table in bq_sync_map.items():
-                    if file_path and table:
-                        # Use Parquet path for Postgres upload if it exists
-                        upload_path = parquet_sync_map.get(file_path, file_path)
+                
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    pg_futures = []
+                    for file_path, table in bq_sync_map.items():
+                        if file_path and table:
+                            upload_path = parquet_sync_map.get(file_path, file_path)
+                            pg_futures.append(executor.submit(upload_to_postgres, engine, upload_path, table))
+
+                    # Sync Master Processed tables to Postgres
+                    if processed_po_df is not None:
+                        pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, processed_po_df, "po_processed"))
+                    if processed_rfm_df is not None:
+                        pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, processed_rfm_df, "rfm_processed"))
+                    if gold_logistics_df is not None:
+                        pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, gold_logistics_df, "gold_logistics_summary"))
+                    
+                    for future in concurrent.futures.as_completed(pg_futures):
                         try:
-                            # Load to public schema, replacing existing table
-                            upload_to_postgres(engine, upload_path, table)
+                            future.result()
                         except Exception as e:
-                            print(f"Failed to sync {file_path} to Postgres: {e}")
-
-                # Sync Master Processed table to Postgres
-                if processed_po_df is not None:
-                    processed_table = "po_processed"
-                    try:
-                        load_dataframe_to_postgres(engine, processed_po_df, processed_table)
-                    except Exception as e:
-                        print(f"Failed to sync Master Processed PO to Postgres: {e}")
-
-                if processed_rfm_df is not None:
-                    try:
-                        load_dataframe_to_postgres(engine, processed_rfm_df, "rfm_processed")
-                    except Exception as e:
-                        print(f"Failed to sync Master Processed RFM to Postgres: {e}")
-
-                # Sync Gold Logistics table to Postgres
-                if 'gold_logistics_df' in locals() and gold_logistics_df is not None:
-                    try:
-                        load_dataframe_to_postgres(engine, gold_logistics_df, "gold_logistics_summary")
-                    except Exception as e:
-                        print(f"Failed to sync Gold Logistics to Postgres: {e}")
+                            print(f"Postgres sync task failed: {e}")
 
             except ImportError:
                 print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")

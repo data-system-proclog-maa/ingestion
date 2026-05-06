@@ -18,15 +18,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
     # 1. Load PO data
     print(f"Reading PO data from {raw_path}...")
     safe_raw_path = raw_path.replace('\\', '/')
-    if raw_path.endswith('.parquet'):
-        con.execute(f"CREATE OR REPLACE VIEW df_po AS SELECT * FROM read_parquet('{safe_raw_path}')")
-    else:
-        df_po = pd.read_excel(raw_path)
-        df_po.columns = [
-            c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') 
-            for c in df_po.columns
-        ]
-        con.register('df_po', df_po)
+    con.execute(f"CREATE OR REPLACE VIEW df_po AS SELECT * FROM read_parquet('{safe_raw_path}')")
 
     # 2. Load TL data
     has_tl = False
@@ -34,15 +26,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
         print(f"Reading TL data from {tl_path}...")
         has_tl = True
         safe_tl_path = tl_path.replace('\\', '/')
-        if tl_path.endswith('.parquet'):
-            con.execute(f"CREATE OR REPLACE VIEW df_tl AS SELECT * FROM read_parquet('{safe_tl_path}')")
-        else:
-            df_tl = pd.read_excel(tl_path)
-            df_tl.columns = [
-                c.replace(' ', '_').replace('/', '_').replace('-', '_') 
-                for c in df_tl.columns
-            ]
-            con.register('df_tl', df_tl)
+        con.execute(f"CREATE OR REPLACE VIEW df_tl AS SELECT * FROM read_parquet('{safe_tl_path}')")
     else:
         print("Warning: TL file not found. Using empty mapping.")
         df_tl_empty = pd.DataFrame(columns=['Transfer_Number', 'PIC', 'Shipping_Co'])
