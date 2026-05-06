@@ -17,6 +17,7 @@ from core.synology import get_synology_connection, daily_upload_to_synology
 from core.bigquery import upload_to_bq, load_dataframe_to_bq
 from core.postgres import upload_to_postgres, load_dataframe_to_postgres
 from daily.transform.silver_po import transform_po_silver
+from daily.transform.silver_rfm import transform_rfm_silver
 from daily.transform.gold_logistics_summary import transform_gold_logistics
 
 
@@ -81,19 +82,38 @@ def main():
         # --- PRE-PROCESS: Convert Excel to Parquet for Speed ---
         parquet_sync_map = {}
         if sync_registry:
-            print("\nConverting Excel to Parquet for internal speed...")
-            for key, excel_path in sync_registry.items():
+            print("\nConverting Excel to Parquet for internal speed (Parallel)...")
+            import concurrent.futures
+
+            def convert_to_parquet(key_path_tuple):
+                key, excel_path = key_path_tuple
                 if excel_path and excel_path.endswith('.xlsx'):
                     pq_path = excel_path.replace('.xlsx', '.parquet')
                     try:
-                        pd.read_excel(excel_path).to_parquet(pq_path)
-                        parquet_sync_map[excel_path] = pq_path
-                        print(f"Converted {key} to Parquet.")
+                        df = pd.read_excel(excel_path)
+                        # Clean column names immediately so Parquet is native-ready for DuckDB
+                        df.columns = [
+                            c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') 
+                            for c in df.columns
+                        ]
+                        df.to_parquet(pq_path)
+                        return key, excel_path, pq_path
                     except Exception as e:
                         print(f"Failed to convert {key} to Parquet: {e}")
+                return None
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = executor.map(convert_to_parquet, sync_registry.items())
+                for res in results:
+                    if res:
+                        key, excel_path, pq_path = res
+                        parquet_sync_map[excel_path] = pq_path
+                        print(f"Converted {key} to Parquet.")
 
         # --- MASTER PROCESSING LAYER ---
         processed_po_df = None
+        processed_rfm_df = None
+        
         if po_path:
             # Use the Parquet version if available
             transform_po_path = parquet_sync_map.get(po_path, po_path)
@@ -104,6 +124,15 @@ def main():
                 processed_po_df = transform_po_silver(transform_po_path, transform_tl_path)
             except Exception as e:
                 print(f"Failed to transform PO: {e}")
+
+        if rfm_path:
+            transform_rfm_path = parquet_sync_map.get(rfm_path, rfm_path)
+            
+            print("\nStarting DuckDB Transformation for RFM List...")
+            try:
+                processed_rfm_df = transform_rfm_silver(transform_rfm_path)
+            except Exception as e:
+                print(f"Failed to transform RFM: {e}")
 
         bq_sync_map = {
             rfm_path: dailyConfig.BQ_TABLE_RFM,
@@ -133,6 +162,12 @@ def main():
                     load_dataframe_to_bq(bq_client, processed_po_df, processed_table, DATASET_ID)
                 except Exception as e:
                     print(f"failed to sync Master Processed PO to BQ: {e}")
+
+            if processed_rfm_df is not None:
+                try:
+                    load_dataframe_to_bq(bq_client, processed_rfm_df, "rfm_processed", DATASET_ID)
+                except Exception as e:
+                    print(f"failed to sync Master Processed RFM to BQ: {e}")
 
                 # --- GOLD LAYER: Logistics Summary ---
                 print("\nStarting Gold Transformation for Logistics Summary...")
@@ -168,6 +203,12 @@ def main():
                         load_dataframe_to_postgres(engine, processed_po_df, processed_table)
                     except Exception as e:
                         print(f"Failed to sync Master Processed PO to Postgres: {e}")
+
+                if processed_rfm_df is not None:
+                    try:
+                        load_dataframe_to_postgres(engine, processed_rfm_df, "rfm_processed")
+                    except Exception as e:
+                        print(f"Failed to sync Master Processed RFM to Postgres: {e}")
 
                 # Sync Gold Logistics table to Postgres
                 if 'gold_logistics_df' in locals() and gold_logistics_df is not None:

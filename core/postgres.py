@@ -1,5 +1,30 @@
 import pandas as pd
 from sqlalchemy import create_engine
+import csv
+from io import StringIO
+
+def psql_insert_copy(table, conn, keys, data_iter):
+    """
+    Executes SQL statement inserting data using Postgres COPY for massive performance gains.
+    """
+    dbapi_conn = conn.connection
+    if hasattr(dbapi_conn, "dbapi_connection"):
+        dbapi_conn = dbapi_conn.dbapi_connection
+        
+    with dbapi_conn.cursor() as cur:
+        s_buf = StringIO()
+        writer = csv.writer(s_buf)
+        writer.writerows(data_iter)
+        s_buf.seek(0)
+
+        columns = ', '.join('"{}"'.format(k) for k in keys)
+        if table.schema:
+            table_name = '{}.{}'.format(table.schema, table.name)
+        else:
+            table_name = '"{}"'.format(table.name)
+
+        sql = 'COPY {} ({}) FROM STDIN WITH CSV'.format(table_name, columns)
+        cur.copy_expert(sql=sql, file=s_buf)
 
 def load_dataframe_to_postgres(engine, df, table_name, schema="public", if_exists="replace"):
     """
@@ -20,7 +45,7 @@ def load_dataframe_to_postgres(engine, df, table_name, schema="public", if_exist
             schema=schema,
             if_exists=if_exists,
             index=False,
-            method='multi'  # faster inserts
+            method=psql_insert_copy  # Use fast bulk COPY method
         )
         print(f"Successfully loaded {len(df)} rows to {schema}.{table_name}")
     except Exception as e:

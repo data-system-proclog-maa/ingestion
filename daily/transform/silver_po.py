@@ -17,30 +17,32 @@ def transform_po_silver(raw_path, tl_path):
 
     # 1. Load PO data
     print(f"Reading PO data from {raw_path}...")
+    safe_raw_path = raw_path.replace('\\', '/')
     if raw_path.endswith('.parquet'):
-        df_po = pd.read_parquet(raw_path)
+        con.execute(f"CREATE OR REPLACE VIEW df_po AS SELECT * FROM read_parquet('{safe_raw_path}')")
     else:
         df_po = pd.read_excel(raw_path)
-    
-    # Standardize column names
-    df_po.columns = [
-        c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') 
-        for c in df_po.columns
-    ]
+        df_po.columns = [
+            c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') 
+            for c in df_po.columns
+        ]
+        con.register('df_po', df_po)
 
     # 2. Load TL data
-    df_tl = None
+    has_tl = False
     if tl_path and os.path.exists(tl_path):
         print(f"Reading TL data from {tl_path}...")
+        has_tl = True
+        safe_tl_path = tl_path.replace('\\', '/')
         if tl_path.endswith('.parquet'):
-            df_tl = pd.read_parquet(tl_path)
+            con.execute(f"CREATE OR REPLACE VIEW df_tl AS SELECT * FROM read_parquet('{safe_tl_path}')")
         else:
             df_tl = pd.read_excel(tl_path)
-        
-        df_tl.columns = [
-            c.replace(' ', '_').replace('/', '_').replace('-', '_') 
-            for c in df_tl.columns
-        ]
+            df_tl.columns = [
+                c.replace(' ', '_').replace('/', '_').replace('-', '_') 
+                for c in df_tl.columns
+            ]
+            con.register('df_tl', df_tl)
     else:
         print("Warning: TL file not found. Skipping TL merge.")
 
@@ -58,26 +60,59 @@ def transform_po_silver(raw_path, tl_path):
         FROM df_tl
         GROUP BY Transfer_Number
     ),
-    po_with_tl AS (
+    cleaned_po AS (
+        -- Clean Department: Remove leading 'X' and whitespace
         SELECT 
             po.*,
-            -- DAX CONCATENATEX equivalent
-            (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE po.TL_Number LIKE '%' || t.Transfer_Number || '%') AS all_pic,
-            (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE po.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by
+            trim(CASE 
+                WHEN upper(trim(Department)) LIKE 'X%' THEN substr(trim(upper(Department)), 2) 
+                ELSE upper(trim(Department)) 
+            END) AS clean_dept,
         FROM df_po po
+    ),
+    po_with_base AS (
+        -- Extract the base parts before '-' or '_'
+        SELECT 
+            *,
+            trim(split_part(split_part(clean_dept, '-', 1), '_', 1)) AS dept_base
+        FROM cleaned_po
+    ),
+    po_with_tl AS (
+        SELECT 
+            c.*,
+            -- DAX CONCATENATEX equivalent
+            (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS all_pic,
+            (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by
+        FROM po_with_base c
     )
     SELECT 
-        *,
+        * EXCLUDE (clean_dept, dept_base),
         -- 1. Aging calculations
         (current_date - try_cast(Receive_PO_Date AS DATE)) AS aging_receive,
         (current_date - try_cast(Shipped_Date AS DATE)) AS aging_ship,
         (current_date - try_cast(Created_TL_Date AS DATE)) AS aging_tl,
         (current_date - try_cast(PO_Approval_Date AS DATE)) AS aging_po_approve,
         
-        -- 2. PT Extraction
+        -- 2. Advanced PT Extraction
         CASE 
-            WHEN contains(Department, '-') THEN trim(split_part(Department, '-', 1))
-            ELSE NULL 
+            WHEN dept_base = 'IMS' THEN
+                CASE 
+                    WHEN clean_dept LIKE '%147%' THEN 'IMS 147'
+                    WHEN clean_dept LIKE '%52%' THEN 'IMS 52'
+                    ELSE 'IMS'
+                END
+            WHEN dept_base = 'MPS' THEN
+                CASE WHEN clean_dept LIKE '%SC%' THEN 'MPS SC' ELSE 'MPS' END
+            WHEN dept_base = 'MMP' THEN
+                CASE 
+                    WHEN contains(clean_dept, '-') THEN
+                        CASE 
+                            WHEN trim(split_part(clean_dept, '-', -1)) = 'KDI' THEN 'MMP LAR'
+                            ELSE 'MMP ' || trim(split_part(clean_dept, '-', -1))
+                        END
+                    ELSE 'MMP'
+                END
+            ELSE dept_base 
         END AS pt,
 
         -- 3. Boolean Status Flags
@@ -86,18 +121,54 @@ def transform_po_silver(raw_path, tl_path):
         (PO_Receive_Location = Final_Destination_Location) AS is_transit
         
     FROM po_with_tl
-    """ if df_tl is not None else """
+    """ if has_tl else """
+    WITH cleaned_po AS (
+        SELECT 
+            *,
+            trim(CASE 
+                WHEN upper(trim(Department)) LIKE 'X%' THEN substr(trim(upper(Department)), 2) 
+                ELSE upper(trim(Department)) 
+            END) AS clean_dept,
+        FROM df_po
+    ),
+    po_with_base AS (
+        SELECT 
+            *,
+            trim(split_part(split_part(clean_dept, '-', 1), '_', 1)) AS dept_base
+        FROM cleaned_po
+    )
     SELECT 
-        *,
+        * EXCLUDE (clean_dept, dept_base),
         (current_date - try_cast(Receive_PO_Date AS DATE)) AS aging_receive,
         (current_date - try_cast(Shipped_Date AS DATE)) AS aging_ship,
         (current_date - try_cast(Created_TL_Date AS DATE)) AS aging_tl,
         (current_date - try_cast(PO_Approval_Date AS DATE)) AS aging_po_approve,
-        CASE WHEN contains(Department, '-') THEN trim(split_part(Department, '-', 1)) ELSE NULL END AS pt,
+        
+        CASE 
+            WHEN dept_base = 'IMS' THEN
+                CASE 
+                    WHEN clean_dept LIKE '%147%' THEN 'IMS 147'
+                    WHEN clean_dept LIKE '%52%' THEN 'IMS 52'
+                    ELSE 'IMS'
+                END
+            WHEN dept_base = 'MPS' THEN
+                CASE WHEN clean_dept LIKE '%SC%' THEN 'MPS SC' ELSE 'MPS' END
+            WHEN dept_base = 'MMP' THEN
+                CASE 
+                    WHEN contains(clean_dept, '-') THEN
+                        CASE 
+                            WHEN trim(split_part(clean_dept, '-', -1)) = 'KDI' THEN 'MMP LAR'
+                            ELSE 'MMP ' || trim(split_part(clean_dept, '-', -1))
+                        END
+                    ELSE 'MMP'
+                END
+            ELSE dept_base 
+        END AS pt,
+        
         (Qty_Handover = Qty_Received) AS is_handover,
         (Qty_Order = Qty_Received) AS is_po_fully_receive,
         (PO_Receive_Location = Final_Destination_Location) AS is_transit
-    FROM df_po
+    FROM po_with_base
     """
 
     print("Running DuckDB Silver transformations and merging...")
