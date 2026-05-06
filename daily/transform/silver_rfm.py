@@ -128,8 +128,8 @@ def transform_rfm_silver(raw_path):
         END AS pt,
 
         -- 4. Aging Dates
-        (current_date - try_cast(Requisition_Approved_Date AS DATE)) AS aging_req_approved,
-        (current_date - Used_RFM_Approved_Date) AS aging_used_req_approved
+        date_diff('day', try_cast(Requisition_Approved_Date AS DATE), current_date) AS aging_req_approved,
+        date_diff('day', try_cast(Used_RFM_Approved_Date AS DATE), current_date) AS aging_used_req_approved
 
     FROM rfm_joined
     """
