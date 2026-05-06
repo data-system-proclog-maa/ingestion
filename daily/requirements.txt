@@ -9,3 +9,4 @@ openpyxl
 pyarrow
 sqlalchemy
 psycopg2-binary
+duckdb
