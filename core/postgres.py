@@ -29,8 +29,11 @@ def load_dataframe_to_postgres(engine, df, table_name, schema="public", if_exist
 
 def upload_to_postgres(engine, file_path, table_name, schema="public", if_exists="replace"):
     """
-    Wrapper for Excel files.
+    Wrapper for Excel and Parquet files.
     """
     print(f"reading data from {file_path}")
-    df = pd.read_excel(file_path)
+    if file_path.endswith('.parquet'):
+        df = pd.read_parquet(file_path)
+    else:
+        df = pd.read_excel(file_path)
     load_dataframe_to_postgres(engine, df, table_name, schema, if_exists)

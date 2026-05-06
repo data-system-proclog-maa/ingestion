@@ -45,8 +45,11 @@ def load_dataframe_to_bq(bq_client, df, table, dataset):
 
 def upload_to_bq(bq_client, file_path, table, dataset):
     """
-    Wrapper for Excel files.
+    Wrapper for Excel and Parquet files.
     """
     print(f"reading data from {file_path}")
-    df = pd.read_excel(file_path)
+    if file_path.endswith('.parquet'):
+        df = pd.read_parquet(file_path)
+    else:
+        df = pd.read_excel(file_path)
     load_dataframe_to_bq(bq_client, df, table, dataset)
