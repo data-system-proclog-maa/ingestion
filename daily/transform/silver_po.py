@@ -92,12 +92,14 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             -- DAX CONCATENATEX equivalent
             (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS all_pic,
             (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by,
-            r.Used_RFM_Approved_Date
+            r.Used_RFM_Approved_Date,
+            r.background_update
         FROM po_with_base c
         LEFT JOIN df_rfm r ON c.Requisition_Number = r.Requisition_Number
     )
     SELECT 
-        * EXCLUDE (clean_dept, dept_base),
+        * EXCLUDE (clean_dept, dept_base, background_update),
+        background_update, 
         -- 1. Aging calculations
         date_diff('day', try_cast(Receive_PO_Date AS DATE), current_date) AS aging_receive,
         date_diff('day', try_cast(Shipped_Date AS DATE), current_date) AS aging_ship,

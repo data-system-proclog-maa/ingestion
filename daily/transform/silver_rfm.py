@@ -61,17 +61,18 @@ def transform_rfm_silver(raw_path):
         SELECT 
             "Requisition Number" AS req_number,
             -- Clean datetime to standard date format if needed
-            try_cast(regexp_replace(cast("Updated Requisition Approved Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_date
+            try_cast(regexp_replace(cast("Updated Requisition Approved Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_date,
+            "Background Update" AS background_update
         FROM df_norm
     ),
     rfm_joined AS (
         SELECT 
             r.*,
             n.updated_date,
+            n.background_update,
             COALESCE(
                 n.updated_date, 
-                try_cast(r.Requisition_Approved_Date AS DATE), 
-                DATE '2020-01-01'
+                try_cast(r.Requisition_Approved_Date AS DATE)
             ) AS Used_RFM_Approved_Date
         FROM rfm_with_base r
         LEFT JOIN rfm_norm n ON r.Requisition_Number = n.req_number
