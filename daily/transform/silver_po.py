@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from datetime import datetime
 
-def transform_po_silver(raw_path, tl_path):
+def transform_po_silver(raw_path, tl_path, rfm_df=None):
     """
     Transforms PO data and merges with TL data using DuckDB.
     Supports both .xlsx and .parquet inputs.
@@ -44,7 +44,16 @@ def transform_po_silver(raw_path, tl_path):
             ]
             con.register('df_tl', df_tl)
     else:
-        print("Warning: TL file not found. Skipping TL merge.")
+        print("Warning: TL file not found. Using empty mapping.")
+        df_tl_empty = pd.DataFrame(columns=['Transfer_Number', 'PIC', 'Shipping_Co'])
+        con.register('df_tl', df_tl_empty)
+
+    # 3. Load RFM data (from pre-processed dataframe)
+    if rfm_df is not None:
+        con.register('df_rfm', rfm_df)
+    else:
+        df_rfm_empty = pd.DataFrame(columns=['Requisition_Number', 'Used_RFM_Approved_Date'])
+        con.register('df_rfm', df_rfm_empty)
 
     # 3. RUN TRANSFORMATION
     # We use string_agg for CONCATENATEX behavior
@@ -77,13 +86,15 @@ def transform_po_silver(raw_path, tl_path):
             trim(split_part(split_part(clean_dept, '-', 1), '_', 1)) AS dept_base
         FROM cleaned_po
     ),
-    po_with_tl AS (
+    po_joined AS (
         SELECT 
             c.*,
             -- DAX CONCATENATEX equivalent
             (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS all_pic,
-            (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by
+            (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by,
+            r.Used_RFM_Approved_Date
         FROM po_with_base c
+        LEFT JOIN df_rfm r ON c.Requisition_Number = r.Requisition_Number
     )
     SELECT 
         * EXCLUDE (clean_dept, dept_base),
@@ -92,6 +103,7 @@ def transform_po_silver(raw_path, tl_path):
         (current_date - try_cast(Shipped_Date AS DATE)) AS aging_ship,
         (current_date - try_cast(Created_TL_Date AS DATE)) AS aging_tl,
         (current_date - try_cast(PO_Approval_Date AS DATE)) AS aging_po_approve,
+        (current_date - Used_RFM_Approved_Date) AS aging_used_req_approved,
         
         -- 2. Advanced PT Extraction
         CASE 
@@ -120,55 +132,7 @@ def transform_po_silver(raw_path, tl_path):
         (Qty_Order = Qty_Received) AS is_po_fully_receive,
         (PO_Receive_Location = Final_Destination_Location) AS is_transit
         
-    FROM po_with_tl
-    """ if has_tl else """
-    WITH cleaned_po AS (
-        SELECT 
-            *,
-            trim(CASE 
-                WHEN upper(trim(Department)) LIKE 'X%' THEN substr(trim(upper(Department)), 2) 
-                ELSE upper(trim(Department)) 
-            END) AS clean_dept,
-        FROM df_po
-    ),
-    po_with_base AS (
-        SELECT 
-            *,
-            trim(split_part(split_part(clean_dept, '-', 1), '_', 1)) AS dept_base
-        FROM cleaned_po
-    )
-    SELECT 
-        * EXCLUDE (clean_dept, dept_base),
-        (current_date - try_cast(Receive_PO_Date AS DATE)) AS aging_receive,
-        (current_date - try_cast(Shipped_Date AS DATE)) AS aging_ship,
-        (current_date - try_cast(Created_TL_Date AS DATE)) AS aging_tl,
-        (current_date - try_cast(PO_Approval_Date AS DATE)) AS aging_po_approve,
-        
-        CASE 
-            WHEN dept_base = 'IMS' THEN
-                CASE 
-                    WHEN clean_dept LIKE '%147%' THEN 'IMS 147'
-                    WHEN clean_dept LIKE '%52%' THEN 'IMS 52'
-                    ELSE 'IMS'
-                END
-            WHEN dept_base = 'MPS' THEN
-                CASE WHEN clean_dept LIKE '%SC%' THEN 'MPS SC' ELSE 'MPS' END
-            WHEN dept_base = 'MMP' THEN
-                CASE 
-                    WHEN contains(clean_dept, '-') THEN
-                        CASE 
-                            WHEN trim(split_part(clean_dept, '-', -1)) = 'KDI' THEN 'MMP LAR'
-                            ELSE 'MMP ' || trim(split_part(clean_dept, '-', -1))
-                        END
-                    ELSE 'MMP'
-                END
-            ELSE dept_base 
-        END AS pt,
-        
-        (Qty_Handover = Qty_Received) AS is_handover,
-        (Qty_Order = Qty_Received) AS is_po_fully_receive,
-        (PO_Receive_Location = Final_Destination_Location) AS is_transit
-    FROM po_with_base
+    FROM po_joined
     """
 
     print("Running DuckDB Silver transformations and merging...")
@@ -184,7 +148,7 @@ if __name__ == "__main__":
     result = transform_po_silver(po_file, tl_file)
     if result is not None:
         print("\nPreview of Silver Data (First 5 rows):")
-        cols = ['PO_Number', 'TL_Number', 'all_pic', 'shipped_by', 'is_handover', 'pt']
+        cols = ['PO_Number', 'TL_Number', 'all_pic', 'shipped_by', 'is_handover', 'pt', 'aging_used_req_approved']
         # Show existing columns
         cols = [c for c in cols if c in result.columns]
         print(result[cols].head())

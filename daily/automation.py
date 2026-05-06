@@ -111,20 +111,9 @@ def main():
                         print(f"Converted {key} to Parquet.")
 
         # --- MASTER PROCESSING LAYER ---
-        processed_po_df = None
         processed_rfm_df = None
+        processed_po_df = None
         
-        if po_path:
-            # Use the Parquet version if available
-            transform_po_path = parquet_sync_map.get(po_path, po_path)
-            transform_tl_path = parquet_sync_map.get(tl_path, tl_path)
-            
-            print("\nStarting DuckDB Transformation for PO List...")
-            try:
-                processed_po_df = transform_po_silver(transform_po_path, transform_tl_path)
-            except Exception as e:
-                print(f"Failed to transform PO: {e}")
-
         if rfm_path:
             transform_rfm_path = parquet_sync_map.get(rfm_path, rfm_path)
             
@@ -133,6 +122,17 @@ def main():
                 processed_rfm_df = transform_rfm_silver(transform_rfm_path)
             except Exception as e:
                 print(f"Failed to transform RFM: {e}")
+
+        if po_path:
+            # Use the Parquet version if available
+            transform_po_path = parquet_sync_map.get(po_path, po_path)
+            transform_tl_path = parquet_sync_map.get(tl_path, tl_path)
+            
+            print("\nStarting DuckDB Transformation for PO List...")
+            try:
+                processed_po_df = transform_po_silver(transform_po_path, transform_tl_path, processed_rfm_df)
+            except Exception as e:
+                print(f"Failed to transform PO: {e}")
 
         bq_sync_map = {
             rfm_path: dailyConfig.BQ_TABLE_RFM,

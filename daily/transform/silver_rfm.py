@@ -28,6 +28,18 @@ def transform_rfm_silver(raw_path):
         ]
         con.register('df_rfm', df_rfm)
 
+    # Fetch Normalisasi Google Sheet
+    print("Fetching RFM Normalisasi from Google Sheets...")
+    url = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=0"
+    try:
+        df_norm = pd.read_csv(url)
+        con.register('df_norm', df_norm)
+    except Exception as e:
+        print(f"Warning: Failed to fetch RFM Normalisasi. {e}")
+        # Fallback to an empty dataframe to prevent crashes
+        df_norm = pd.DataFrame(columns=['Requisition Number', 'Updated Requisition Approved Date'])
+        con.register('df_norm', df_norm)
+
     query = """
     WITH cleaned_rfm AS (
         SELECT 
@@ -44,9 +56,28 @@ def transform_rfm_silver(raw_path):
             *,
             trim(split_part(split_part(clean_project, '-', 1), '_', 1)) AS project_base
         FROM cleaned_rfm
+    ),
+    rfm_norm AS (
+        SELECT 
+            "Requisition Number" AS req_number,
+            -- Clean datetime to standard date format if needed
+            try_cast(regexp_replace(cast("Updated Requisition Approved Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_date
+        FROM df_norm
+    ),
+    rfm_joined AS (
+        SELECT 
+            r.*,
+            n.updated_date,
+            COALESCE(
+                n.updated_date, 
+                try_cast(r.Requisition_Approved_Date AS DATE), 
+                DATE '2020-01-01'
+            ) AS Used_RFM_Approved_Date
+        FROM rfm_with_base r
+        LEFT JOIN rfm_norm n ON r.Requisition_Number = n.req_number
     )
     SELECT 
-        * EXCLUDE (clean_project, project_base),
+        * EXCLUDE (clean_project, project_base, updated_date),
         
         -- 1. Divisi Extraction
         CASE 
@@ -74,7 +105,7 @@ def transform_rfm_silver(raw_path):
             ELSE 'Empty'
         END AS procurement_loc,
 
-        -- 3. Advanced PT Extraction (Using same dynamic split logic)
+        -- 3. Advanced PT Extraction
         CASE 
             WHEN project_base = 'IMS' THEN
                 CASE 
@@ -98,9 +129,9 @@ def transform_rfm_silver(raw_path):
 
         -- 4. Aging Dates
         (current_date - try_cast(Requisition_Approved_Date AS DATE)) AS aging_req_approved,
-        (current_date - try_cast(Used_RFM_Approved_Date AS DATE)) AS aging_used_req_approved
+        (current_date - Used_RFM_Approved_Date) AS aging_used_req_approved
 
-    FROM rfm_with_base
+    FROM rfm_joined
     """
 
     print("Running DuckDB Silver transformations for RFM...")
