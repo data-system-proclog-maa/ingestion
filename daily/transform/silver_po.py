@@ -135,7 +135,15 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             ELSE 0
         END AS fullfilled_handover,
 
-        -- 5. Boolean Status Flags
+        -- 5. Location Grouping
+        CASE 
+            WHEN upper(trim(split_part(Department, '-', -1))) = 'HO' THEN 'HO'
+            WHEN upper(trim(split_part(Department, '-', -1))) IN ('PALU', 'LAR', 'LWK', 'KDI', 'LWI', 'POM', 'KNW', 'WATU', 'LAEYA', 'MUNA') THEN 'Sulawesi'
+            WHEN upper(trim(split_part(Department, '-', -1))) IN ('OBI', 'FLUK', 'BARU') THEN 'Halmahera'
+            ELSE 'Other'
+        END AS location_group,
+
+        -- 6. Boolean Status Flags
         (Qty_Handover = Qty_Received) AS is_handover,
         (Qty_Order = Qty_Received) AS is_po_fully_receive,
         (PO_Receive_Location = Final_Destination_Location) AS is_transit

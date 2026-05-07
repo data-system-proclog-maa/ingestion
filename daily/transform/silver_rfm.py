@@ -120,7 +120,15 @@ def transform_rfm_silver(raw_path):
             ELSE project_base 
         END AS pt,
 
-        -- 4. Aging Dates
+        -- 4. Location Grouping
+        CASE 
+            WHEN upper(trim(split_part(Project, '-', -1))) = 'HO' THEN 'HO'
+            WHEN upper(trim(split_part(Project, '-', -1))) IN ('PALU', 'LAR', 'LWK', 'KDI', 'LWI', 'POM', 'KNW', 'WATU', 'LAEYA', 'MUNA') THEN 'Sulawesi'
+            WHEN upper(trim(split_part(Project, '-', -1))) IN ('OBI', 'FLUK', 'BARU') THEN 'Halmahera'
+            ELSE 'Other'
+        END AS location_group,
+
+        -- 5. Aging Dates
         date_diff('day', try_cast(Requisition_Approved_Date AS DATE), current_date) AS aging_req_approved,
         date_diff('day', try_cast(Used_RFM_Approved_Date AS DATE), current_date) AS aging_used_req_approved
 
