@@ -124,7 +124,7 @@ def transform_rfm_silver(raw_path):
         CASE 
             WHEN upper(trim(split_part(Project, '-', -1))) = 'HO' THEN 'HO'
             WHEN upper(trim(split_part(Project, '-', -1))) IN ('PALU', 'LAR', 'LWK', 'KDI', 'LWI', 'POM', 'KNW', 'WATU', 'LAEYA', 'MUNA') THEN 'Sulawesi'
-            WHEN upper(trim(split_part(Project, '-', -1))) IN ('OBI', 'FLUK', 'BARU') THEN 'Halmahera'
+            WHEN upper(trim(split_part(Project, '-', -1))) IN ('OBI', 'FLUK', 'BARU', 'TTE') THEN 'Halmahera'
             ELSE 'Other'
         END AS location_group,
 

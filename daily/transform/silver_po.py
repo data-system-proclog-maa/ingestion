@@ -139,7 +139,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
         CASE 
             WHEN upper(trim(split_part(Department, '-', -1))) = 'HO' THEN 'HO'
             WHEN upper(trim(split_part(Department, '-', -1))) IN ('PALU', 'LAR', 'LWK', 'KDI', 'LWI', 'POM', 'KNW', 'WATU', 'LAEYA', 'MUNA') THEN 'Sulawesi'
-            WHEN upper(trim(split_part(Department, '-', -1))) IN ('OBI', 'FLUK', 'BARU') THEN 'Halmahera'
+            WHEN upper(trim(split_part(Department, '-', -1))) IN ('OBI', 'FLUK', 'BARU', 'TTE') THEN 'Halmahera'
             ELSE 'Other'
         END AS location_group,
 
