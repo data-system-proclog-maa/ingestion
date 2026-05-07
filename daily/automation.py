@@ -143,6 +143,14 @@ def main():
             except Exception as e:
                 print(f"Failed to transform Gold Logistics: {e}")
 
+        # --- INGESTION LOG ---
+        print("\nCreating Ingestion Log...")
+        import datetime
+        gmt7 = datetime.timezone(datetime.timedelta(hours=7))
+        ingestion_log_df = pd.DataFrame({
+            'date_updated': [datetime.datetime.now(gmt7).replace(tzinfo=None)]
+        })
+
         bq_sync_map = {
             rfm_path: dailyConfig.BQ_TABLE_RFM,
             tl_path: dailyConfig.BQ_TABLE_TL,
@@ -169,6 +177,9 @@ def main():
                 if gold_logistics_df is not None:
                     bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, gold_logistics_df, "gold_logistics_summary", DATASET_ID))
                 
+                # Sync Ingestion Log
+                bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, ingestion_log_df, "ingestion_log", DATASET_ID))
+
                 for future in concurrent.futures.as_completed(bq_futures):
                     try:
                         future.result()
@@ -198,6 +209,9 @@ def main():
                         pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, processed_rfm_df, "rfm_processed"))
                     if gold_logistics_df is not None:
                         pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, gold_logistics_df, "gold_logistics_summary"))
+                    
+                    # Sync Ingestion Log
+                    pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, ingestion_log_df, "ingestion_log"))
                     
                     for future in concurrent.futures.as_completed(pg_futures):
                         try:

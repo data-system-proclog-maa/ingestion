@@ -112,8 +112,30 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
                 END
             ELSE dept_base 
         END AS pt,
+        -- 3. Divisi Extraction
+        CASE 
+            WHEN contains(Department, '-') AND contains(Department, '_') THEN 
+                trim(split_part(split_part(Department, '-', 2), '_', 1))
+            ELSE NULL
+        END AS divisi,
 
-        -- 3. Boolean Status Flags
+        -- 4. Fulfillment Flags
+        CASE 
+            WHEN Qty_Order = Qty_Received AND Qty_Order = Qty_Shipped AND Qty_Order = TL_Qty_Received THEN 1
+            ELSE 0
+        END AS fullfilled_po,
+
+        CASE 
+            WHEN Qty_Received = Qty_Shipped AND Qty_Received = TL_Qty_Received THEN 1
+            ELSE 0
+        END AS fullfilled_logistic,
+
+        CASE 
+            WHEN Qty_Order = Qty_Received AND Qty_Order = Qty_Shipped AND Qty_Order = TL_Qty_Received AND Qty_Order = Qty_Handover THEN 1
+            ELSE 0
+        END AS fullfilled_handover,
+
+        -- 5. Boolean Status Flags
         (Qty_Handover = Qty_Received) AS is_handover,
         (Qty_Order = Qty_Received) AS is_po_fully_receive,
         (PO_Receive_Location = Final_Destination_Location) AS is_transit
