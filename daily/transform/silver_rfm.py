@@ -33,7 +33,7 @@ def transform_rfm_silver(raw_path):
         df_norm = pd.DataFrame(columns=['Requisition Number', 'Updated Requisition Approved Date'])
         con.register('df_norm', df_norm)
 
-    query = """
+    query = r"""
     WITH    cleaned_rfm AS (
         SELECT 
             *,
@@ -43,7 +43,18 @@ def transform_rfm_silver(raw_path):
                 ELSE upper(trim(Project)) 
             END) AS clean_project,
             -- Extract text after "finalisasi" for date mining (UpdatedDatePQ)
-            regexp_extract(replace(Progress_Status, 'Sept', 'Sep'), '(?i)finalisasi\s+([^\r\n]+)', 1) AS raw_pq_text
+            -- Translate Indonesian months to English so DuckDB can parse them
+            regexp_extract(
+                replace(replace(replace(replace(replace(replace(
+                    replace(Progress_Status, 'Sept', 'Sep'), 
+                    'Mei', 'May'), 
+                    'Agu', 'Aug'), 
+                    'Okt', 'Oct'), 
+                    'Des', 'Dec'),
+                    'Peb', 'Feb'), -- common typo
+                    'Agst', 'Aug'), -- common typo
+                '(?i)finalisasi\s+([^\r\n]+)', 1
+            ) AS raw_pq_text
         FROM df_rfm
     ),
     rfm_with_base AS (
@@ -55,8 +66,9 @@ def transform_rfm_silver(raw_path):
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})', 1) AS DATE),
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1) AS DATE),
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', 1) AS DATE),
-                -- Handle "12 Jan 2024" format
-                strptime(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), '%d %b %Y')
+                -- Handle "12 Sep 2024" or "12 September 2024"
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), ''), '%d %b %Y'),
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{4,}\s+[0-9]{4})', 1), ''), '%d %B %Y')
             ) AS update_rfm_regex
         FROM cleaned_rfm
     ),
@@ -70,10 +82,11 @@ def transform_rfm_silver(raw_path):
     rfm_joined AS (
         SELECT 
             r.*,
-            n.updated_date AS ManualUpdatedDate,
+            n.updated_date AS manual_update_date,
             n.background_update,
-            -- PRIORITY COALESCE: Manual > Regex > Base System > 2020-01-01
+            -- NEW PRIORITY: Take the LATEST (MAX) of manual vs regex, else fallback
             COALESCE(
+                greatest(n.updated_date, r.update_rfm_regex),
                 n.updated_date, 
                 r.update_rfm_regex,
                 try_cast(r.Requisition_Approved_Date AS DATE),
