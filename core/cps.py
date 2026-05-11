@@ -64,11 +64,12 @@ def download_po(page):
 
     # export
     popout_arrow = "#ctl00_ctl00_ContentPlaceHolder1_ContentPlaceHolder1_ASPxRoundPanel3_menuPrintReq_DXI6_P"
+    page.wait_for_selector(popout_arrow)
     page.click(popout_arrow)
     
-    print("downloading po entry list (100s timeout)...")
+    print("downloading po entry list (300s timeout)...")
     try:
-        with page.expect_download(timeout=100000) as download_info:
+        with page.expect_download(timeout=300000) as download_info:
             page.click("text=Print to Excel", no_wait_after=True)
             print("server generating file...")
         
