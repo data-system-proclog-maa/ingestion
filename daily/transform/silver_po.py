@@ -63,7 +63,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             END) AS clean_dept,
             -- Regex Extract from PO's own Req_Progress_Status
             regexp_extract(
-                replace(replace(replace(replace(replace(replace(
+                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
                     replace(Req_Progress_Status, 'Sept', 'Sep'), 
                     'Mei', 'May'), 
                     'Agu', 'Aug'), 
@@ -71,6 +71,10 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
                     'Des', 'Dec'),
                     'Peb', 'Feb'),
                     'Agst', 'Aug'),
+                    'Agustus', 'Aug'),
+                    'Desember', 'Dec'),
+                    'Januari', 'Jan'),
+                    'Pebruari', 'Feb'),
                 '(?i)finalisasi\s+([^\r\n]+)', 1
             ) AS raw_pq_text
         FROM df_po po
@@ -83,10 +87,10 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             -- Try to parse dates from the PO's own status
             COALESCE(
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})', 1) AS DATE),
-                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1), ''), '%d/%m/%Y'),
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1), ''), '%d/%m/%Y')::DATE,
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', 1) AS DATE),
-                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), ''), '%d %b %Y'),
-                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{4,}\s+[0-9]{4})', 1), ''), '%d %B %Y')
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), ''), '%d %b %Y')::DATE,
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{4,}\s+[0-9]{4})', 1), ''), '%d %B %Y')::DATE
             ) AS po_update_regex
         FROM cleaned_po
     ),
@@ -109,7 +113,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             ) AS Used_RFM_Approved_Date,
             n.background_update
         FROM po_with_base c
-        LEFT JOIN df_rfm n ON c.Requisition_Number = n.Requisition_Number
+        LEFT JOIN df_rfm n ON cast(c.Requisition_Number AS VARCHAR) = cast(n.Requisition_Number AS VARCHAR)
     )
     SELECT 
         * EXCLUDE (clean_dept, dept_base, background_update),

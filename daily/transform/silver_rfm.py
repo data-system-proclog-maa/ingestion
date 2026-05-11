@@ -45,14 +45,18 @@ def transform_rfm_silver(raw_path):
             -- Extract text after "finalisasi" for date mining (UpdatedDatePQ)
             -- Translate Indonesian months to English so DuckDB can parse them
             regexp_extract(
-                replace(replace(replace(replace(replace(replace(
+                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
                     replace(Progress_Status, 'Sept', 'Sep'), 
                     'Mei', 'May'), 
                     'Agu', 'Aug'), 
                     'Okt', 'Oct'), 
                     'Des', 'Dec'),
-                    'Peb', 'Feb'), -- common typo
-                    'Agst', 'Aug'), -- common typo
+                    'Peb', 'Feb'),
+                    'Agst', 'Aug'),
+                    'Agustus', 'Aug'),
+                    'Desember', 'Dec'),
+                    'Januari', 'Jan'),
+                    'Pebruari', 'Feb'),
                 '(?i)finalisasi\s+([^\r\n]+)', 1
             ) AS raw_pq_text
         FROM df_rfm
@@ -64,17 +68,17 @@ def transform_rfm_silver(raw_path):
             -- Try to parse dates from the mined text using common patterns
             COALESCE(
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})', 1) AS DATE),
-                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1), ''), '%d/%m/%Y'),
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1), ''), '%d/%m/%Y')::DATE,
                 try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', 1) AS DATE),
                 -- Handle "12 Sep 2024" or "12 September 2024"
-                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), ''), '%d %b %Y'),
-                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{4,}\s+[0-9]{4})', 1), ''), '%d %B %Y')
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), ''), '%d %b %Y')::DATE,
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{4,}\s+[0-9]{4})', 1), ''), '%d %B %Y')::DATE
             ) AS update_rfm_regex
         FROM cleaned_rfm
     ),
     rfm_norm AS (
         SELECT 
-            "Requisition Number" AS req_number,
+            cast("Requisition Number" AS VARCHAR) AS req_number,
             try_cast(regexp_replace(cast("Updated Requisition Approved Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_date,
             "Background Update" AS background_update
         FROM df_norm
@@ -93,7 +97,7 @@ def transform_rfm_silver(raw_path):
                 DATE '2020-01-01'
             ) AS Used_RFM_Approved_Date
         FROM rfm_with_base r
-        LEFT JOIN rfm_norm n ON r.Requisition_Number = n.req_number
+        LEFT JOIN rfm_norm n ON cast(r.Requisition_Number AS VARCHAR) = n.req_number
     )
     SELECT 
         * EXCLUDE (clean_project, project_base, raw_pq_text),
