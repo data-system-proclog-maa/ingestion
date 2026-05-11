@@ -27,6 +27,7 @@ class dailyConfig(CommonConfig):
     BQ_TABLE_RFM: str  = os.environ["BQ_TABLE_RFM"]
     BQ_TABLE_TL: str  = os.environ["BQ_TABLE_TL"]
     SERVING_DB: str = os.getenv("SERVING_DB", "") # Added for Neon Postgres
+    USE_BIGQUERY: bool = os.getenv("USE_BIGQUERY", "False").lower() == "true"
 
 class dailyScrapperConfig(dailyConfig):
     """

@@ -25,17 +25,25 @@ from daily.transform.gold_logistics_summary import transform_gold_logistics
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv()
 
-#setting up gcp credentials
-if os.getenv("GCP_SA_KEY"):
-    # for actions
-    gcp_sa_info = json.loads(os.getenv("GCP_SA_KEY"))
-else:
-    # for local
-    with open (os.path.join(BASE_DIR, dailyConfig.GCP_SA_KEY), "r", encoding="utf-8") as f:
-        gcp_sa_info = json.load(f)
+# setting up gcp credentials (if enabled)
+bq_client = None
+if dailyConfig.USE_BIGQUERY:
+    if os.getenv("GCP_SA_KEY"):
+        # for actions
+        gcp_sa_info = json.loads(os.getenv("GCP_SA_KEY"))
+    else:
+        # for local
+        gcp_key_path = os.path.join(BASE_DIR, dailyConfig.GCP_SA_KEY)
+        if os.path.exists(gcp_key_path):
+            with open (gcp_key_path, "r", encoding="utf-8") as f:
+                gcp_sa_info = json.load(f)
+        else:
+            print("Warning: GCP_SA_KEY file not found. BigQuery initialization skipped.")
+            gcp_sa_info = None
 
-credentials = service_account.Credentials.from_service_account_info(gcp_sa_info)
-bq_client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+    if gcp_sa_info:
+        credentials = service_account.Credentials.from_service_account_info(gcp_sa_info)
+        bq_client = bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 def main():
     # creating folder
@@ -158,8 +166,8 @@ def main():
         }
         DATASET_ID = dailyConfig.BQ_DATASET
         
-        # sync to bq
-        if sync_registry:
+        # sync to bq (if enabled)
+        if sync_registry and dailyConfig.USE_BIGQUERY and bq_client:
             print("\nStarting BQ Sync (Parallel)...")
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -185,6 +193,8 @@ def main():
                         future.result()
                     except Exception as e:
                         print(f"BQ sync task failed: {e}")
+        elif not dailyConfig.USE_BIGQUERY:
+            print("\nBigQuery sync is currently DEACTIVATED in config.")
 
         # sync to postgres
         if sync_registry and dailyConfig.SERVING_DB:
