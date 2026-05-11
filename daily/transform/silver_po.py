@@ -123,6 +123,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
         date_diff('day', try_cast(Shipped_Date AS DATE), current_date) AS aging_ship,
         date_diff('day', try_cast(Created_TL_Date AS DATE), current_date) AS aging_tl,
         date_diff('day', try_cast(PO_Approval_Date AS DATE), current_date) AS aging_po_approve,
+        date_diff('day', try_cast(PO_Submit_Date AS DATE), current_date) AS aging_po_submit,
         date_diff('day', try_cast(Used_RFM_Approved_Date AS DATE), current_date) AS aging_used_req_approved,
         
         -- 2. Advanced PT Extraction
