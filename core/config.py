@@ -22,7 +22,7 @@ class CommonConfig:
     URL_PO_LIST: str = f"{URL_BASE}CPS/Forms/Project/BIZ_POEntryList.aspx"
     
     # Filter Settings
-    PO_START_DATE: str = "01/01/2025"
+    PO_START_DATE: str = "01/06/2025"
     
     # External Data Sources
     URL_RFM_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=0"
