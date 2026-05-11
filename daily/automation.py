@@ -66,7 +66,7 @@ def main():
                 # 1. download rfm
                 rfm_path = download_rfm_tl(
                     page, 
-                    "https://maa-admin.onlinepo.com/CPS/Forms/Project/BIZ_RequisitionEntryList.aspx", 
+                    dailyConfig.URL_RFM_LIST, 
                     "Requisition Entry List.xlsx"
                 )
                 sync_registry["rfm"] = rfm_path
@@ -74,7 +74,7 @@ def main():
                 # 2. download tl
                 tl_path = download_rfm_tl(
                     page,
-                    "https://maa-admin.onlinepo.com/CPS/Forms/Project/BIZ_TransferList.aspx",
+                    dailyConfig.URL_TL_LIST,
                     "Transfer List.xlsx",
                     export_selector="#ctl00_ctl00_ContentPlaceHolder1_ContentPlaceHolder1_ASPxRoundPanel3_mnuNAV_DXI6_PImg"
                 )
@@ -98,16 +98,41 @@ def main():
                 if excel_path and excel_path.endswith('.xlsx'):
                     pq_path = excel_path.replace('.xlsx', '.parquet')
                     try:
-                        df = pd.read_excel(excel_path)
-                        # Clean column names immediately so Parquet is native-ready for DuckDB
-                        df.columns = [
-                            c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') 
-                            for c in df.columns
-                        ]
-                        df.to_parquet(pq_path)
+                        import duckdb
+                        # Using a private connection per thread for safety
+                        con = duckdb.connect()
+                        # Ensure the excel extension is available
+                        con.execute("INSTALL spatial; LOAD spatial;")
+                        
+                        # 1. Get raw column names to clean them
+                        # We use spatial's st_read which is very robust for Excel
+                        temp_view = f"temp_{key}"
+                        con.execute(f"CREATE OR REPLACE VIEW {temp_view} AS SELECT * FROM st_read('{excel_path}') LIMIT 0")
+                        raw_cols = [col[0] for col in con.execute(f"DESCRIBE {temp_view}").fetchall()]
+                        
+                        # 2. Map cleaned names
+                        select_parts = []
+                        for col in raw_cols:
+                            clean = col.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct')
+                            select_parts.append(f'"{col}" AS "{clean}"')
+                        
+                        select_sql = ", ".join(select_parts)
+                        
+                        # 3. Export to Parquet (High performance)
+                        print(f"DuckDB converting {key} to Parquet...")
+                        con.execute(f"COPY (SELECT {select_sql} FROM st_read('{excel_path}')) TO '{pq_path}' (FORMAT 'PARQUET')")
+                        con.close()
                         return key, excel_path, pq_path
                     except Exception as e:
-                        print(f"Failed to convert {key} to Parquet: {e}")
+                        print(f"Failed to convert {key} to Parquet via DuckDB: {e}")
+                        # Fallback to pandas if DuckDB extension fails
+                        try:
+                            df = pd.read_excel(excel_path)
+                            df.columns = [c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
+                            df.to_parquet(pq_path)
+                            return key, excel_path, pq_path
+                        except Exception as e2:
+                            print(f"Final fallback failed for {key}: {e2}")
                 return None
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -128,8 +153,11 @@ def main():
             print("\nStarting DuckDB Transformation for RFM List...")
             try:
                 processed_rfm_df = transform_rfm_silver(transform_rfm_path)
+                if processed_rfm_df is None:
+                    raise ValueError("RFM Silver transformation returned empty results.")
             except Exception as e:
-                print(f"Failed to transform RFM: {e}")
+                print(f"CRITICAL ERROR: Failed to transform RFM: {e}")
+                sys.exit(1) # Circuit Breaker
 
         if po_path:
             # Use the Parquet version if available
@@ -139,8 +167,11 @@ def main():
             print("\nStarting DuckDB Transformation for PO List...")
             try:
                 processed_po_df = transform_po_silver(transform_po_path, transform_tl_path, processed_rfm_df)
+                if processed_po_df is None:
+                    raise ValueError("PO Silver transformation returned empty results.")
             except Exception as e:
-                print(f"Failed to transform PO: {e}")
+                print(f"CRITICAL ERROR: Failed to transform PO: {e}")
+                sys.exit(1) # Circuit Breaker
 
         # --- GOLD LAYER: Logistics Summary ---
         gold_logistics_df = None
@@ -148,8 +179,11 @@ def main():
             print("\nStarting Gold Transformation for Logistics Summary...")
             try:
                 gold_logistics_df = transform_gold_logistics(processed_po_df)
+                if gold_logistics_df is None:
+                    raise ValueError("Gold Logistics transformation returned empty results.")
             except Exception as e:
-                print(f"Failed to transform Gold Logistics: {e}")
+                print(f"CRITICAL ERROR: Failed to transform Gold Logistics: {e}")
+                sys.exit(1) # Circuit Breaker
 
         # --- INGESTION LOG ---
         print("\nCreating Ingestion Log...")
@@ -192,7 +226,8 @@ def main():
                     try:
                         future.result()
                     except Exception as e:
-                        print(f"BQ sync task failed: {e}")
+                        print(f"CRITICAL ERROR: BQ sync task failed: {e}")
+                        sys.exit(1) # Stop immediately if warehouse sync fails
         elif not dailyConfig.USE_BIGQUERY:
             print("\nBigQuery sync is currently DEACTIVATED in config.")
 
@@ -227,7 +262,8 @@ def main():
                         try:
                             future.result()
                         except Exception as e:
-                            print(f"Postgres sync task failed: {e}")
+                            print(f"CRITICAL ERROR: Postgres sync task failed: {e}")
+                            sys.exit(1) # Stop immediately if serving DB sync fails
 
             except ImportError:
                 print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")

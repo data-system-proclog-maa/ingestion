@@ -14,6 +14,18 @@ class CommonConfig:
     NAS_PORT: int = 5001
     DOWNLOAD_DIR: str = "downloads"
     BASE_LAKE: str = os.environ["BASE_LAKE"]
+    
+    # Source URLs
+    URL_BASE: str = "https://maa-admin.onlinepo.com/"
+    URL_RFM_LIST: str = f"{URL_BASE}CPS/Forms/Project/BIZ_RequisitionEntryList.aspx"
+    URL_TL_LIST: str = f"{URL_BASE}CPS/Forms/Project/BIZ_TransferList.aspx"
+    URL_PO_LIST: str = f"{URL_BASE}CPS/Forms/Project/BIZ_POEntryList.aspx"
+    
+    # Filter Settings
+    PO_START_DATE: str = "01/01/2025"
+    
+    # External Data Sources
+    URL_RFM_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=0"
 
 class dailyConfig(CommonConfig):
     """
