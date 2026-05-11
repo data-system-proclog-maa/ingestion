@@ -2,6 +2,7 @@ import duckdb
 import os
 import pandas as pd
 from datetime import datetime
+from core.config import dailyConfig
 
 def transform_rfm_silver(raw_path):
     """
@@ -22,7 +23,7 @@ def transform_rfm_silver(raw_path):
 
     # Fetch Normalisasi Google Sheet
     print("Fetching RFM Normalisasi from Google Sheets...")
-    url = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=0"
+    url = dailyConfig.URL_RFM_NORMALISASI
     try:
         df_norm = pd.read_csv(url)
         con.register('df_norm', df_norm)

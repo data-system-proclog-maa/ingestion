@@ -115,8 +115,8 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
         -- 3. Divisi Extraction
         CASE 
             WHEN contains(Department, '-') AND contains(Department, '_') THEN 
-                trim(split_part(split_part(Department, '-', 2), '_', 1))
-            ELSE NULL
+                    trim(split_part(split_part(Department, '-', 2), '_', 1))
+                ELSE NULL
         END AS divisi,
 
         -- 4. Fulfillment Flags
