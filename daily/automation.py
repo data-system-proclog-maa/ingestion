@@ -4,6 +4,7 @@ import pandas as pd
 from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
+import traceback
 
 from google.oauth2 import service_account
 from google.cloud import bigquery
@@ -13,7 +14,7 @@ from synology_api.filestation import FileStation
 
 from core.config import dailyConfig
 from core.cps import login_to_cps, download_rfm_tl, download_po
-from core.synology import get_synology_connection, daily_upload_to_synology
+from core.synology import get_synology_connection, ensure_synology_path, upload_to_synology_direct
 from core.bigquery import upload_to_bq, load_dataframe_to_bq
 from core.postgres import upload_to_postgres, load_dataframe_to_postgres
 from daily.transform.silver_po import transform_po_silver
@@ -95,53 +96,73 @@ def main():
             print("\nInitializing DuckDB extensions...")
             try:
                 con = duckdb.connect()
+                print("Installing/Loading DuckDB extensions (spatial, excel)...")
                 con.execute("INSTALL spatial; LOAD spatial;")
+                con.execute("INSTALL excel; LOAD excel;")
                 con.close()
+                print("DuckDB extensions initialized.")
             except Exception as e:
-                print(f"Warning: DuckDB extension setup failed: {e}. Falling back to Pandas.")
+                print(f"Warning: DuckDB extension setup encountered an issue: {e}. The script will try to use fallbacks.")
 
             print("Converting Excel to Parquet for internal speed (Parallel)...")
             import concurrent.futures
 
             def convert_to_parquet(key_path_tuple):
                 key, excel_path = key_path_tuple
-                if excel_path and excel_path.endswith('.xlsx'):
-                    pq_path = excel_path.replace('.xlsx', '.parquet')
+                if not excel_path or not excel_path.endswith('.xlsx'):
+                    return None
+                    
+                pq_path = excel_path.replace('.xlsx', '.parquet')
+                try:
+                    import duckdb
+                    con = duckdb.connect()
+                    
+                    # 1. Proactively find a working Excel reader
+                    reader_func = None
+                    # Try excel extension first
                     try:
-                        import duckdb
-                        # Using a private connection per thread
-                        con = duckdb.connect()
-                        # Load only (Installation is handled in main thread)
-                        con.execute("LOAD spatial;")
-                        
-                        # 1. Get raw column names
-                        temp_view = f"temp_{key}"
-                        con.execute(f"CREATE OR REPLACE VIEW {temp_view} AS SELECT * FROM st_read('{excel_path}') LIMIT 0")
-                        raw_cols = [col[0] for col in con.execute(f"DESCRIBE {temp_view}").fetchall()]
-                        
-                        # 2. Map cleaned names
-                        select_parts = []
-                        for col in raw_cols:
-                            clean = col.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct')
-                            select_parts.append(f'"{col}" AS "{clean}"')
-                        
-                        select_sql = ", ".join(select_parts)
-                        
-                        # 3. Export to Parquet (High performance)
-                        print(f"DuckDB converting {key} to Parquet...")
-                        con.execute(f"COPY (SELECT {select_sql} FROM st_read('{excel_path}')) TO '{pq_path}' (FORMAT 'PARQUET')")
-                        con.close()
-                        return key, excel_path, pq_path
-                    except Exception as e:
-                        print(f"Failed to convert {key} to Parquet via DuckDB: {e}")
-                        # Fallback to pandas if DuckDB extension fails
+                        con.execute("INSTALL excel; LOAD excel;")
+                        con.execute(f"SELECT * FROM read_excel('{excel_path}') LIMIT 0")
+                        reader_func = "read_excel"
+                    except:
+                        # Try spatial fallback
                         try:
-                            df = pd.read_excel(excel_path)
-                            df.columns = [c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
-                            df.to_parquet(pq_path)
-                            return key, excel_path, pq_path
-                        except Exception as e2:
-                            print(f"Final fallback failed for {key}: {e2}")
+                            con.execute("INSTALL spatial; LOAD spatial;")
+                            con.execute(f"SELECT * FROM st_read('{excel_path}') LIMIT 0")
+                            reader_func = "st_read"
+                        except:
+                            con.close()
+                            raise ImportError("No working DuckDB Excel reader found (tried read_excel and st_read).")
+                    
+                    # 2. Get raw column names using the verified reader
+                    temp_view = f"temp_{key}"
+                    con.execute(f"CREATE OR REPLACE VIEW {temp_view} AS SELECT * FROM {reader_func}('{excel_path}') LIMIT 0")
+                    raw_cols = [col[0] for col in con.execute(f"DESCRIBE {temp_view}").fetchall()]
+                    
+                    # 3. Map cleaned names
+                    select_parts = []
+                    for col in raw_cols:
+                        clean = col.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct')
+                        select_parts.append(f'"{col}" AS "{clean}"')
+                    
+                    select_sql = ", ".join(select_parts)
+                    
+                    # 4. Export to Parquet (High performance)
+                    print(f"DuckDB ({reader_func}) converting {key} to Parquet...")
+                    con.execute(f"COPY (SELECT {select_sql} FROM {reader_func}('{excel_path}')) TO '{pq_path}' (FORMAT 'PARQUET')")
+                    con.close()
+                    return key, excel_path, pq_path
+                except Exception as e:
+                    print(f"Failed to convert {key} to Parquet via DuckDB: {e}")
+                    # Fallback to pandas
+                    try:
+                        import pandas as pd
+                        df = pd.read_excel(excel_path)
+                        df.columns = [c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
+                        df.to_parquet(pq_path)
+                        return key, excel_path, pq_path
+                    except Exception as e2:
+                        print(f"Final fallback failed for {key}: {e2}")
                 return None
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -282,12 +303,26 @@ def main():
         # sync to synology
         if sync_registry:
             print("\nStarting Synology Sync...")
-            fl = get_synology_connection()
-            for file_path in sync_registry.values():
-                daily_upload_to_synology(file_path, fl)
+            import time
+            try:
+                fl = get_synology_connection()
+                # 1. Verify path once
+                target_dir = ensure_synology_path(fl, dailyConfig.DAILY_PATH)
+                
+                # 2. Upload all files
+                for file_path in sync_registry.values():
+                    if file_path and os.path.exists(file_path):
+                        upload_to_synology_direct(file_path, target_dir, fl)
+                        time.sleep(2) # Small pause to let NAS breathe
+                    else:
+                        print(f"Skipping Synology upload for missing file: {file_path}")
+            except Exception as e:
+                print(f"Synology Sync encountered a non-critical issue: {e}")
+                # We don't sys.exit here because the data is already in DBs
 
     except Exception as e:
         print(f"Critical Automation Error: {e}")
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
