@@ -45,18 +45,11 @@ def transform_rfm_silver(raw_path):
             -- Extract text after "finalisasi" for date mining (UpdatedDatePQ)
             -- Translate Indonesian months to English so DuckDB can parse them
             regexp_extract(
-                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
-                    replace(Progress_Status, 'Sept', 'Sep'), 
-                    'Mei', 'May'), 
-                    'Agu', 'Aug'), 
-                    'Okt', 'Oct'), 
-                    'Des', 'Dec'),
-                    'Peb', 'Feb'),
-                    'Agst', 'Aug'),
-                    'Agustus', 'Aug'),
-                    'Desember', 'Dec'),
-                    'Januari', 'Jan'),
-                    'Pebruari', 'Feb'),
+                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+                    Progress_Status, 
+                    'Sept', 'Sep'), 'Mei', 'May'), 'Agu', 'Aug'), 'Okt', 'Oct'), 'Des', 'Dec'),
+                    'Peb', 'Feb'), 'Agst', 'Aug'), 'Agustus', 'Aug'), 'Desember', 'Dec'), 'Januari', 'Jan'),
+                    'Pebruari', 'Feb'), 'Maret', 'Mar'), 'Juni', 'Jun'), 'Juli', 'Jul'), 'Oktober', 'Oct'),
                 '(?i)finalisasi\s+([^\r\n]+)', 1
             ) AS raw_pq_text
         FROM df_rfm
