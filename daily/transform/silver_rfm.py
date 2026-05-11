@@ -42,10 +42,9 @@ def transform_rfm_silver(raw_path):
                 WHEN upper(trim(Project)) LIKE 'X%' THEN substr(trim(upper(Project)), 2) 
                 ELSE upper(trim(Project)) 
             END) AS clean_project,
-            -- Extract text after "finalisasi" for date mining (UpdatedDatePQ)
             -- Translate Indonesian months to English so DuckDB can parse them
             regexp_extract(
-                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
                     Progress_Status, 
                     'Sept', 'Sep'), 'Mei', 'May'), 'Agu', 'Aug'), 'Okt', 'Oct'), 'Des', 'Dec'), 
                     'Peb', 'Feb'), 'Agst', 'Aug'), 'Agustus', 'Aug'), 'Desember', 'Dec'), 'Januari', 'Jan'), 

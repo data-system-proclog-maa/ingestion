@@ -63,7 +63,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             END) AS clean_dept,
             -- Regex Extract from PO's own Req_Progress_Status
             regexp_extract(
-                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+                replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
                     Req_Progress_Status, 
                     'Sept', 'Sep'), 'Mei', 'May'), 'Agu', 'Aug'), 'Okt', 'Oct'), 'Des', 'Dec'), 
                     'Peb', 'Feb'), 'Agst', 'Aug'), 'Agustus', 'Aug'), 'Desember', 'Dec'), 'Januari', 'Jan'), 
