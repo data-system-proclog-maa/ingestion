@@ -90,7 +90,17 @@ def main():
         # --- PRE-PROCESS: Convert Excel to Parquet for Speed ---
         parquet_sync_map = {}
         if sync_registry:
-            print("\nConverting Excel to Parquet for internal speed (Parallel)...")
+            # 1. Pre-load DuckDB extensions in the main thread to avoid concurrency locks
+            import duckdb
+            print("\nInitializing DuckDB extensions...")
+            try:
+                con = duckdb.connect()
+                con.execute("INSTALL spatial; LOAD spatial;")
+                con.close()
+            except Exception as e:
+                print(f"Warning: DuckDB extension setup failed: {e}. Falling back to Pandas.")
+
+            print("Converting Excel to Parquet for internal speed (Parallel)...")
             import concurrent.futures
 
             def convert_to_parquet(key_path_tuple):
@@ -99,13 +109,12 @@ def main():
                     pq_path = excel_path.replace('.xlsx', '.parquet')
                     try:
                         import duckdb
-                        # Using a private connection per thread for safety
+                        # Using a private connection per thread
                         con = duckdb.connect()
-                        # Ensure the excel extension is available
-                        con.execute("INSTALL spatial; LOAD spatial;")
+                        # Load only (Installation is handled in main thread)
+                        con.execute("LOAD spatial;")
                         
-                        # 1. Get raw column names to clean them
-                        # We use spatial's st_read which is very robust for Excel
+                        # 1. Get raw column names
                         temp_view = f"temp_{key}"
                         con.execute(f"CREATE OR REPLACE VIEW {temp_view} AS SELECT * FROM st_read('{excel_path}') LIMIT 0")
                         raw_cols = [col[0] for col in con.execute(f"DESCRIBE {temp_view}").fetchall()]
