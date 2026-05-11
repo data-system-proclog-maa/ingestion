@@ -34,7 +34,7 @@ def transform_rfm_silver(raw_path):
         con.register('df_norm', df_norm)
 
     query = """
-    WITH cleaned_rfm AS (
+    WITH    cleaned_rfm AS (
         SELECT 
             *,
             -- Clean Project: Remove leading 'X' and whitespace
@@ -42,18 +42,27 @@ def transform_rfm_silver(raw_path):
                 WHEN upper(trim(Project)) LIKE 'X%' THEN substr(trim(upper(Project)), 2) 
                 ELSE upper(trim(Project)) 
             END) AS clean_project,
+            -- Extract text after "finalisasi" for date mining (UpdatedDatePQ)
+            regexp_extract(replace(Progress_Status, 'Sept', 'Sep'), '(?i)finalisasi\s+([^\r\n]+)', 1) AS raw_pq_text
         FROM df_rfm
     ),
     rfm_with_base AS (
         SELECT 
             *,
-            trim(split_part(split_part(clean_project, '-', 1), '_', 1)) AS project_base
+            trim(split_part(split_part(clean_project, '-', 1), '_', 1)) AS project_base,
+            -- Try to parse dates from the mined text using common patterns
+            COALESCE(
+                try_cast(regexp_extract(raw_pq_text, '([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})', 1) AS DATE),
+                try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1) AS DATE),
+                try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', 1) AS DATE),
+                -- Handle "12 Jan 2024" format
+                strptime(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), '%d %b %Y')
+            ) AS update_rfm_regex
         FROM cleaned_rfm
     ),
     rfm_norm AS (
         SELECT 
             "Requisition Number" AS req_number,
-            -- Clean datetime to standard date format if needed
             try_cast(regexp_replace(cast("Updated Requisition Approved Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_date,
             "Background Update" AS background_update
         FROM df_norm
@@ -61,17 +70,20 @@ def transform_rfm_silver(raw_path):
     rfm_joined AS (
         SELECT 
             r.*,
-            n.updated_date,
+            n.updated_date AS ManualUpdatedDate,
             n.background_update,
+            -- PRIORITY COALESCE: Manual > Regex > Base System > 2020-01-01
             COALESCE(
                 n.updated_date, 
-                try_cast(r.Requisition_Approved_Date AS DATE)
+                r.update_rfm_regex,
+                try_cast(r.Requisition_Approved_Date AS DATE),
+                DATE '2020-01-01'
             ) AS Used_RFM_Approved_Date
         FROM rfm_with_base r
         LEFT JOIN rfm_norm n ON r.Requisition_Number = n.req_number
     )
     SELECT 
-        * EXCLUDE (clean_project, project_base, updated_date),
+        * EXCLUDE (clean_project, project_base, raw_pq_text),
         
         -- 1. Divisi Extraction
         CASE 
