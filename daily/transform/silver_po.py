@@ -43,7 +43,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
     # We use string_agg for CONCATENATEX behavior
     # We use LIKE join for CONTAINSSTRING behavior
     
-    query = """
+    query = r"""
     WITH tl_agg AS (
         -- Pre-aggregate TL data if multiple TLs exist for one number (unlikely but safe)
         SELECT 
@@ -61,13 +61,33 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
                 WHEN upper(trim(Department)) LIKE 'X%' THEN substr(trim(upper(Department)), 2) 
                 ELSE upper(trim(Department)) 
             END) AS clean_dept,
+            -- Regex Extract from PO's own Req_Progress_Status
+            regexp_extract(
+                replace(replace(replace(replace(replace(replace(
+                    replace(Req_Progress_Status, 'Sept', 'Sep'), 
+                    'Mei', 'May'), 
+                    'Agu', 'Aug'), 
+                    'Okt', 'Oct'), 
+                    'Des', 'Dec'),
+                    'Peb', 'Feb'),
+                    'Agst', 'Aug'),
+                '(?i)finalisasi\s+([^\r\n]+)', 1
+            ) AS raw_pq_text
         FROM df_po po
     ),
     po_with_base AS (
         -- Extract the base parts before '-' or '_'
         SELECT 
             *,
-            trim(split_part(split_part(clean_dept, '-', 1), '_', 1)) AS dept_base
+            trim(split_part(split_part(clean_dept, '-', 1), '_', 1)) AS dept_base,
+            -- Try to parse dates from the PO's own status
+            COALESCE(
+                try_cast(regexp_extract(raw_pq_text, '([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})', 1) AS DATE),
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})', 1), ''), '%d/%m/%Y'),
+                try_cast(regexp_extract(raw_pq_text, '([0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', 1) AS DATE),
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{3}\s+[0-9]{4})', 1), ''), '%d %b %Y'),
+                strptime(nullif(regexp_extract(raw_pq_text, '([0-9]{1,2}\s+[a-zA-Z]{4,}\s+[0-9]{4})', 1), ''), '%d %B %Y')
+            ) AS po_update_regex
         FROM cleaned_po
     ),
     po_joined AS (
@@ -76,10 +96,20 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             -- DAX CONCATENATEX equivalent
             (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS all_pic,
             (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by,
-            r.Used_RFM_Approved_Date,
-            r.background_update
+            n.manual_update_date,
+            -- Priority: PO's own status > RFM status join
+            COALESCE(c.po_update_regex, n.update_rfm_regex) AS update_rfm_regex,
+            -- Final Unified Priority
+            COALESCE(
+                n.manual_update_date, 
+                c.po_update_regex,
+                n.update_rfm_regex,
+                try_cast(c.Requisition_Approved_Date AS DATE),
+                DATE '2020-01-01'
+            ) AS Used_RFM_Approved_Date,
+            n.background_update
         FROM po_with_base c
-        LEFT JOIN df_rfm r ON c.Requisition_Number = r.Requisition_Number
+        LEFT JOIN df_rfm n ON c.Requisition_Number = n.Requisition_Number
     )
     SELECT 
         * EXCLUDE (clean_dept, dept_base, background_update),
@@ -143,7 +173,23 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             ELSE 'Other'
         END AS location_group,
 
-        -- 6. Boolean Status Flags
+        -- 6. Procurement LOC Mapping
+        CASE
+            WHEN Procurement_Name IN (
+                'Johnson', 'Sandi Dwi Putra', 'Puji Astuti', 'Yohana Ratih Amalia', 
+                'Syifa Ramadhani Luthfi', 'Rizal Agus Fianto', 'Linda Permata Sari', 
+                'Auriel', 'Rifqy', 'Stheven Immanuel', 'Ferdinand', 'George', 'Admin', 
+                'Zana Chobita', 'Syifa Alifia', 'Fajar Amry', 'Nathanael', 
+                'Laurensius Adi', 'Axel', 'Melia Sari', 'Laurentius Adi'
+            ) THEN 'PIC HO'
+            WHEN Procurement_Name IN ('Fairus Mubakri', 'Irwan', 'Ady', 'Muhammad Hamka') THEN 'PIC LAR'
+            WHEN Procurement_Name IN ('Rona Justhafist', 'Joko', 'Victo', 'Rakan', 'Aldi') THEN 'PIC OBI'
+            WHEN Procurement_Name IN ('Olvan') THEN 'PIC PALU'
+            WHEN contains(Procurement_Name, '/') THEN 'Mixed PIC'
+            ELSE 'Empty'
+        END AS procurement_loc,
+
+        -- 7. Boolean Status Flags
         (Qty_Handover = Qty_Received) AS is_handover,
         (Qty_Order = Qty_Received) AS is_po_fully_receive,
         (PO_Receive_Location = Final_Destination_Location) AS is_transit
