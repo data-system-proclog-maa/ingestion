@@ -1,11 +1,11 @@
 import os
 from core.config import dailyConfig
 
-def login_to_cps(page):
+def login_to_cps(page, config=dailyConfig):
     print("logging in to cps...")
-    page.goto(dailyConfig.URL_BASE)
-    page.fill("#ASPxPanel2_txtUsername_I", dailyConfig.CPS_USERNAME)
-    page.fill("#ASPxPanel2_txtPassword_I", dailyConfig.CPS_PASSWORD)
+    page.goto(config.URL_BASE)
+    page.fill("#ASPxPanel2_txtUsername_I", config.CPS_USERNAME)
+    page.fill("#ASPxPanel2_txtPassword_I", config.CPS_PASSWORD)
     page.click("#ASPxPanel2_btnSignIn_CD")
     page.wait_for_load_state("networkidle")
     print("logged in successfully.")
@@ -36,9 +36,9 @@ def download_rfm_tl(page, url, filename, export_selector=None):
     print(f"downloaded: {path}")
     return path
 
-def download_po(page):
+def download_po(page, config=dailyConfig):
     print("navigating to po entry list...")
-    page.goto(dailyConfig.URL_PO_LIST)
+    page.goto(config.URL_PO_LIST)
     page.wait_for_load_state("networkidle")
 
     # change date
@@ -47,9 +47,9 @@ def download_po(page):
     page.click(date_selector)
     page.keyboard.press("Control+A")
     page.keyboard.press("Backspace")
-    page.type(date_selector, dailyConfig.PO_START_DATE)
+    page.type(date_selector, config.PO_START_DATE)
     page.keyboard.press("Enter")
-    print(f"date set to {dailyConfig.PO_START_DATE}. waiting 10 seconds...")
+    print(f"date set to {config.PO_START_DATE}. waiting 10 seconds...")
     page.wait_for_timeout(10000)
 
     # change status

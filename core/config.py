@@ -58,3 +58,11 @@ class weeklyConfig(CommonConfig):
     """
     WEEKLY_PATH: str  = os.environ["WEEKLY_PATH"]
     SERVING_DB: str = os.getenv("SERVING_DB", "")
+
+class biweeklyHrgaConfig(CommonConfig):
+    """
+    config for HRGA biweekly PO entry process
+    """
+    BIWEEKLY_HRGA_PATH: str = "/home/__HRGA Biweekly PO Entry Update"
+    PO_START_DATE: str = "01/01/2026"
+
