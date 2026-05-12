@@ -1,0 +1,51 @@
+name: HRGA Biweekly PO Entry Update
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Runs at 06:00 UTC on the 1st and 15th of every month (Biweekly schedule)
+    - cron: '0 6 1,15 * *'
+  workflow_dispatch: # Allows manual trigger with optional custom date range
+    inputs:
+      start_date:
+        description: 'Optional Start Date override (YYYY-MM-DD)'
+        required: false
+        type: string
+      end_date:
+        description: 'Optional End Date override (YYYY-MM-DD)'
+        required: false
+        type: string
+
+jobs:
+  update_hrga:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r daily/requirements.txt
+          playwright install chromium --with-deps
+          
+      - name: Run HRGA Biweekly Script
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CPS_USERNAME: ${{ secrets.CPS_USERNAME }}
+          CPS_PASSWORD: ${{ secrets.CPS_PASSWORD }}
+          NAS_DOMAIN: ${{ secrets.NAS_DOMAIN }}
+          NAS_USERNAME: ${{ secrets.NAS_USERNAME }}
+          NAS_PASSWORD: ${{ secrets.NAS_PASSWORD }}
+          NAS_PORT: ${{ secrets.NAS_PORT }}
+          BASE_LAKE: ${{ secrets.BASE_LAKE }}
+          HRGA_START_DATE: ${{ github.event.inputs.start_date }}
+          HRGA_END_DATE: ${{ github.event.inputs.end_date }}
+        run: python hrga-biweekly/automation.py
