@@ -31,13 +31,13 @@ class dailyConfig(CommonConfig):
     """
     config for daily process
     """
-    DAILY_PATH: str  = os.environ["DAILY_PATH"]
+    DAILY_PATH: str  = os.getenv("DAILY_PATH", "")
 
     GCP_SA_KEY: str  = "gcp.json"
-    BQ_DATASET: str  = os.environ["BQ_DATASET"]
-    BQ_TABLE_PO: str  = os.environ["BQ_TABLE_PO"]
-    BQ_TABLE_RFM: str  = os.environ["BQ_TABLE_RFM"]
-    BQ_TABLE_TL: str  = os.environ["BQ_TABLE_TL"]
+    BQ_DATASET: str  = os.getenv("BQ_DATASET", "")
+    BQ_TABLE_PO: str  = os.getenv("BQ_TABLE_PO", "")
+    BQ_TABLE_RFM: str  = os.getenv("BQ_TABLE_RFM", "")
+    BQ_TABLE_TL: str  = os.getenv("BQ_TABLE_TL", "")
     SERVING_DB: str = os.getenv("SERVING_DB", "") # Added for Neon Postgres
     USE_BIGQUERY: bool = os.getenv("USE_BIGQUERY", "False").lower() == "true"
 
@@ -45,18 +45,18 @@ class dailyScrapperConfig(dailyConfig):
     """
     config for daily scrapper
     """
-    SCRAPPER_PATH: str  = os.environ["SCRAPPER_PATH"]
+    SCRAPPER_PATH: str  = os.getenv("SCRAPPER_PATH", "")
 
-    BQ_TABLE_PO_R: str  = os.environ["BQ_TABLE_PO_R"]
-    BQ_TABLE_TL_R: str  = os.environ["BQ_TABLE_TL_R"]
-    BQ_TABLE_INVENTORY_HO: str  = os.environ["BQ_TABLE_INVENTORY_HO"]
+    BQ_TABLE_PO_R: str  = os.getenv("BQ_TABLE_PO_R", "")
+    BQ_TABLE_TL_R: str  = os.getenv("BQ_TABLE_TL_R", "")
+    BQ_TABLE_INVENTORY_HO: str  = os.getenv("BQ_TABLE_INVENTORY_HO", "")
     SERVING_DB: str = os.getenv("SERVING_DB", "") # Added for Neon Postgres
 
 class weeklyConfig(CommonConfig):
     """
     config for weekly process
     """
-    WEEKLY_PATH: str  = os.environ["WEEKLY_PATH"]
+    WEEKLY_PATH: str  = os.getenv("WEEKLY_PATH", "")
     SERVING_DB: str = os.getenv("SERVING_DB", "")
 
 class biweeklyHrgaConfig(CommonConfig):
