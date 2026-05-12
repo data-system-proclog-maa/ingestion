@@ -19,6 +19,7 @@ from core.bigquery import upload_to_bq, load_dataframe_to_bq
 from core.postgres import upload_to_postgres, load_dataframe_to_postgres
 from daily.transform.silver_po import transform_po_silver
 from daily.transform.silver_rfm import transform_rfm_silver
+from daily.transform.silver_tl import transform_tl_silver
 from daily.transform.gold_logistics_summary import transform_gold_logistics
 
 
@@ -176,6 +177,7 @@ def main():
         # --- MASTER PROCESSING LAYER ---
         processed_rfm_df = None
         processed_po_df = None
+        processed_tl_df = None
         
         if rfm_path:
             transform_rfm_path = parquet_sync_map.get(rfm_path, rfm_path)
@@ -201,6 +203,18 @@ def main():
                     raise ValueError("PO Silver transformation returned empty results.")
             except Exception as e:
                 print(f"CRITICAL ERROR: Failed to transform PO: {e}")
+                sys.exit(1) # Circuit Breaker
+
+        if tl_path:
+            transform_tl_path = parquet_sync_map.get(tl_path, tl_path)
+            
+            print("\nStarting DuckDB Transformation for Transfer List...")
+            try:
+                processed_tl_df = transform_tl_silver(transform_tl_path)
+                if processed_tl_df is None:
+                    raise ValueError("TL Silver transformation returned empty results.")
+            except Exception as e:
+                print(f"CRITICAL ERROR: Failed to transform TL: {e}")
                 sys.exit(1) # Circuit Breaker
 
         # --- GOLD LAYER: Logistics Summary ---
@@ -246,6 +260,8 @@ def main():
                     bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, processed_po_df, "po_processed", DATASET_ID))
                 if processed_rfm_df is not None:
                     bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, processed_rfm_df, "rfm_processed", DATASET_ID))
+                if processed_tl_df is not None:
+                    bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, processed_tl_df, "tl_processed", DATASET_ID))
                 if gold_logistics_df is not None:
                     bq_futures.append(executor.submit(load_dataframe_to_bq, bq_client, gold_logistics_df, "gold_logistics_summary", DATASET_ID))
                 
@@ -282,6 +298,8 @@ def main():
                         pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, processed_po_df, "po_processed"))
                     if processed_rfm_df is not None:
                         pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, processed_rfm_df, "rfm_processed"))
+                    if processed_tl_df is not None:
+                        pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, processed_tl_df, "tl_processed"))
                     if gold_logistics_df is not None:
                         pg_futures.append(executor.submit(load_dataframe_to_postgres, engine, gold_logistics_df, "gold_logistics_summary"))
                     
