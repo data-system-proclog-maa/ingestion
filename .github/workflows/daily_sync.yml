@@ -3,9 +3,6 @@ permissions:
   contents: read
 
 on:
-  schedule:
-    - cron: '0 21 * * *'
-    - cron: '0 5 * * *'
   workflow_dispatch: # Allows manual trigger
     inputs:
       manual_reason:
