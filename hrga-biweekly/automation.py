@@ -49,8 +49,7 @@ def filter_and_export_hrga_po(input_path: str, output_path: str):
     query = f"""
     SELECT *
     FROM raw_po
-    WHERE Department ILIKE '%HRGA%' 
-      AND Department NOT LIKE 'MMS%' 
+    WHERE Department NOT LIKE 'MMS%' 
       AND Department NOT LIKE 'AMS%' 
       AND Department NOT LIKE 'SLI%'
       AND try_cast("PO Approval Date" AS DATE) BETWEEN DATE '{start_date}' AND DATE '{end_date}'
