@@ -52,6 +52,7 @@ def filter_and_export_hrga_po(input_path: str, output_path: str):
     WHERE Department NOT LIKE 'MMS%' 
       AND Department NOT LIKE 'AMS%' 
       AND Department NOT LIKE 'SLI%'
+      AND Department NOT LIKE 'NEC%'
       AND try_cast("PO Approval Date" AS DATE) BETWEEN DATE '{start_date}' AND DATE '{end_date}'
     """
     
