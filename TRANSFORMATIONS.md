@@ -23,3 +23,5 @@ This document explains the transformations applied to the raw data files in the 
 ## 3. Transfer List (TL) Processing
 - **Lead Time**: Calculates the days between "Shipped_Date" and "Received_Date". Returns null if either date is missing to avoid incorrect calculations.
 - **Shipped On Time**: Returns 1 if the lead time is 6 days or less, and 0 if it is more than 6 days. Returns null if lead time cannot be calculated.
+- **Normalization Override**: Checks the TL normalization Google Sheet; if the Transfer Number is explicitly listed on this sheet, "Shipped On Time" is forced to 1 (On Time) as an overriding standard.
+

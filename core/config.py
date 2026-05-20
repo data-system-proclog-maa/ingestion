@@ -26,6 +26,7 @@ class CommonConfig:
     
     # External Data Sources
     URL_RFM_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=0"
+    URL_TL_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1RTO11CnG1Y_eLMRrdTHLVHIvWazsxcbo2BfdstSSNLo/gviz/tq?tqx=out:csv&gid=0"
 
 class dailyConfig(CommonConfig):
     """
