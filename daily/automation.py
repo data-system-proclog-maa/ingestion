@@ -288,10 +288,11 @@ def main():
                 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     pg_futures = []
-                    for file_path, table in bq_sync_map.items():
-                        if file_path and table:
-                            upload_path = parquet_sync_map.get(file_path, file_path)
-                            pg_futures.append(executor.submit(upload_to_postgres, engine, upload_path, table))
+                    # Raw tables are commented out for Neon (Postgres) to save network transfer
+                    # for file_path, table in bq_sync_map.items():
+                    #     if file_path and table:
+                    #         upload_path = parquet_sync_map.get(file_path, file_path)
+                    #         pg_futures.append(executor.submit(upload_to_postgres, engine, upload_path, table))
 
                     # Sync Master Processed tables to Postgres
                     if processed_po_df is not None:
