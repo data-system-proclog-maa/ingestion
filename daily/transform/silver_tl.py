@@ -45,7 +45,7 @@ def transform_tl_silver(raw_path):
         END AS lead_time,
 
         -- Calculate shipped_ontime marker: 1 if TL is in normalization override list,
-        -- else 1 if lead_time <= 6, else 0. NULL if lead_time is NULL.
+        -- else 1 if lead_time <= 6 (for all destination location) and <=8 (for MMS Ranoomeeto), else 0. NULL if lead_time is NULL.
         CASE 
             WHEN n."TL Number" IS NOT NULL THEN 1
             WHEN (
@@ -64,6 +64,14 @@ def transform_tl_silver(raw_path):
                     ELSE date_diff('day', try_cast(t.Shipped_Date AS DATE), try_cast(t.Received_Date AS DATE))
                 END
             ) <= 6 THEN 1
+            WHEN t."To" = 'MMS Ranoomeeto' AND (
+                CASE 
+                    WHEN t.Shipped_Date IS NULL OR t.Received_Date IS NULL 
+                         OR trim(cast(t.Shipped_Date AS VARCHAR)) = '' 
+                         OR trim(cast(t.Received_Date AS VARCHAR)) = '' THEN NULL
+                    ELSE date_diff('day', try_cast(t.Shipped_Date AS DATE), try_cast(t.Received_Date AS DATE))
+                END
+            ) <= 8 THEN 1
             ELSE 0
         END AS shipped_ontime
 
