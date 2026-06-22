@@ -3,6 +3,26 @@
 ## Overview
 This repository hosts the data ingestion pipelines for the ETL process. It automates the extraction of data from various sources (CPS, OnlinePO) and syncs it to Google BigQuery, Neon PostgreSQL (Serving DB), MotherDuck, and the Synology NAS.
 
+### Pipeline Architecture
+
+```mermaid
+graph TD
+    A[Playwright Scraper] -->|Downloads XLSX| B[Local downloads/ directory]
+    B -->|ThreadPoolExecutor: DuckDB conversion| C[Raw Parquet Files]
+    B -->|Uploads Raw| D[Synology NAS]
+    C -->|DuckDB In-Memory SQL| E[Silver Layer: transform_po_silver]
+    C -->|DuckDB In-Memory SQL| F[Silver Layer: transform_rfm_silver]
+    C -->|DuckDB In-Memory SQL| G[Silver Layer: transform_tl_silver]
+    E & F & G -->|Pandas DataFrames| H[Gold Layer: transform_gold_logistics]
+    
+    subgraph Serving & Storage Layer
+        H & E & F & G -->|Parallel Sync| I[(Postgres Neon Serving DB)]
+        H & E & F & G -->|Parallel Sync| J[(Google BigQuery DW)]
+        H & E & F & G -->|Fast Parquet / DataFrame Load| K[(MotherDuck OLAP)]
+    end
+```
+
+
 ## Folder Structure
 - **`daily/`**: Production-ready scripts for daily data ingestion.
     - `automation.py`: Main script for downloading reports (PO, RFM, TL) and syncing them.
