@@ -2,7 +2,7 @@
 
 ## Project Context
 **Ingestion Pipeline**: A Python-based ELT/ETL framework designed for procurement and logistics data reconciliation. 
-- **Data Flow**: Web Scraping (Playwright) -> Raw Storage (Parquet/Excel) -> Processing (DuckDB) -> Warehousing (BigQuery, PostgreSQL, Synology NAS).
+- **Data Flow**: Web Scraping (Playwright) -> Raw Storage (Parquet/Excel) -> Processing (DuckDB) -> Warehousing (BigQuery, PostgreSQL, MotherDuck, Synology NAS).
 - **Core Domains**: Purchase Orders (PO), Requisition for Materials (RFM), Transfer Lists (TL).
 
 ## Standards
@@ -14,6 +14,7 @@
 - **Database Interops**: 
     - Use `core/bigquery.py` for Google BigQuery syncs. 
     - Use `core/postgres.py` with the `psql_insert_copy` method for high-performance PostgreSQL inserts (Serving DB: Neon).
+    - Use `core/motherduck.py` for MotherDuck (Cloud DuckDB) syncs.
 - **Scraping**: Utilize the modular patterns in `core/cps.py` and `core/scrapefunction.py`. Always handle browser contexts cleanly with Playwright.
 - **Naming Conventions**: 
     - Standardize dataframe columns using the utility logic in `core/bigquery.py` (replace spaces, slashes, and dashes with underscores).

@@ -14,8 +14,8 @@
 
 ## 🚀 Sync Agent (Data Warehousing)
 **Focus**: Database Throughput & Schema Integrity
-- **Scope**: `core/bigquery.py`, `core/postgres.py`, `core/synology.py`
-- **Core Skill**: BigQuery `job_config`, Postgres `COPY` performance, and Synology API authentication.
+- **Scope**: `core/bigquery.py`, `core/postgres.py`, `core/motherduck.py`, `core/synology.py`
+- **Core Skill**: BigQuery `job_config`, Postgres `COPY` performance, MotherDuck integration, Synology API authentication, and Motherduck `md:` protocol.
 - **Principle**: Minimize I/O by using `.parquet`. Handle schema evolution gracefully. Use threading to parallelize uploads to multiple destinations.
 
 ## 🏗️ Orchestrator Agent

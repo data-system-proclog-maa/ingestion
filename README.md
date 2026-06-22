@@ -1,7 +1,7 @@
 # Ingestion Pipeline
 
 ## Overview
-This repository hosts the data ingestion pipelines for the ETL process. It automates the extraction of data from various sources (CPS, OnlinePO) and syncs it to Google BigQuery and the Synology NAS.
+This repository hosts the data ingestion pipelines for the ETL process. It automates the extraction of data from various sources (CPS, OnlinePO) and syncs it to Google BigQuery, Neon PostgreSQL (Serving DB), MotherDuck, and the Synology NAS.
 
 ## Folder Structure
 - **`daily/`**: Production-ready scripts for daily data ingestion.
@@ -43,6 +43,8 @@ This repository hosts the data ingestion pipelines for the ETL process. It autom
     BQ_TABLE_PO=table_po
     BQ_TABLE_RFM=table_rfm
     BQ_TABLE_TL=table_tl
+    SERVING_DB=postgresql+psycopg2://username:password@host/dbname
+    MD_TOKEN=your_motherduck_token
     GCP_SA_KEY={"type": "service_account", ...} # JSON content of your key
     ```
 
