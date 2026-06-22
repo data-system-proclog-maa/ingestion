@@ -18,10 +18,11 @@ def load_dataframe_to_bq(bq_client, df, table, dataset):
         print(f"Dataset {dataset_id} created successfully.")
 
     # clean columns (standardize for BQ)
-    df.columns = [
-        col.replace(" ", "_").replace("/", "_").replace("-", "_").replace("%", "pct")
+    clean_cols = {
+        col: col.replace(" ", "_").replace("/", "_").replace("-", "_").replace("%", "pct")
         for col in df.columns
-    ]
+    }
+    df = df.rename(columns=clean_cols)
 
     # config setup
     job_config = bigquery.LoadJobConfig(

@@ -32,10 +32,11 @@ def load_dataframe_to_postgres(engine, df, table_name, schema="public", if_exist
     Equivalent to load_dataframe_to_bq but for Postgres.
     """
     # clean columns (standardize for postgres - no spaces, etc)
-    df.columns = [
-        col.replace(" ", "_").replace("/", "_").replace("-", "_").replace("%", "pct").lower()
+    clean_cols = {
+        col: col.replace(" ", "_").replace("/", "_").replace("-", "_").replace("%", "pct").lower()
         for col in df.columns
-    ]
+    }
+    df = df.rename(columns=clean_cols)
 
     print(f"Syncing to PostgreSQL table: {schema}.{table_name}...")
     try:
