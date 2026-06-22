@@ -61,7 +61,8 @@ def main():
         with sync_playwright() as p:
             # headless tracking, change to False for debugging
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            context = browser.new_context(viewport={"width": 1920, "height": 1080})
+            page = context.new_page()
             
             try:
                 login_to_cps(page)
