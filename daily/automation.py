@@ -22,6 +22,7 @@ from daily.transform.silver_rfm import transform_rfm_silver
 from daily.transform.silver_tl import transform_tl_silver
 from daily.transform.gold_logistics_summary import transform_gold_logistics
 
+from core.motherduck import upload_df_to_motherduck
 
 # Load environment variables
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -122,13 +123,13 @@ def main():
                     reader_func = None
                     # Try excel extension first
                     try:
-                        con.execute("INSTALL excel; LOAD excel;")
+                        con.execute("LOAD excel;")
                         con.execute(f"SELECT * FROM read_excel('{excel_path}') LIMIT 0")
                         reader_func = "read_excel"
                     except:
                         # Try spatial fallback
                         try:
-                            con.execute("INSTALL spatial; LOAD spatial;")
+                            con.execute("LOAD spatial;")
                             con.execute(f"SELECT * FROM st_read('{excel_path}') LIMIT 0")
                             reader_func = "st_read"
                         except:
@@ -318,6 +319,32 @@ def main():
                 print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")
             except Exception as e:
                 print(f"Postgres connection error: {e}")
+
+        # sync to motherduck
+        md_token = os.getenv("MD_TOKEN")
+        if md_token:
+            print("\nStarting MotherDuck Sync (Parallel)...")
+            try:
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    md_futures = []
+                    
+                    if processed_po_df is not None:
+                        md_futures.append(executor.submit(upload_df_to_motherduck, processed_po_df, "po_processed"))
+                    if processed_rfm_df is not None:
+                        md_futures.append(executor.submit(upload_df_to_motherduck, processed_rfm_df, "rfm_processed"))
+                    if processed_tl_df is not None:
+                        md_futures.append(executor.submit(upload_df_to_motherduck, processed_tl_df, "tl_processed"))
+                    
+                    for future in concurrent.futures.as_completed(md_futures):
+                        try:
+                            future.result()
+                        except Exception as e:
+                            print(f"CRITICAL ERROR: MotherDuck sync task failed: {e}")
+                            sys.exit(1) # Stop immediately if serving DB sync fails
+            except Exception as e:
+                print(f"MotherDuck Sync encountered an error: {e}")
+        else:
+            print("\nMotherDuck sync is currently DEACTIVATED (MD_TOKEN not found in .env).")
 
         # sync to synology
         if sync_registry:
