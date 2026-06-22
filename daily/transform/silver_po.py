@@ -91,8 +91,8 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
         SELECT 
             c.*,
             -- DAX CONCATENATEX equivalent
-            (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS all_pic,
-            (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE c.TL_Number LIKE '%' || t.Transfer_Number || '%') AS shipped_by,
+            (SELECT string_agg(t.all_pic, ', ') FROM tl_agg t WHERE contains(c.TL_Number, t.Transfer_Number)) AS all_pic,
+            (SELECT string_agg(t.shipped_by, ', ') FROM tl_agg t WHERE contains(c.TL_Number, t.Transfer_Number)) AS shipped_by,
             n.manual_update_date,
             -- Priority: PO's own status > RFM status join
             COALESCE(c.po_update_regex, n.update_rfm_regex) AS update_rfm_regex,
