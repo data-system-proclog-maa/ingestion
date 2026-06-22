@@ -50,3 +50,9 @@ jobs:
           BASE_LAKE: ${{ secrets.BASE_LAKE }}
           SERVING_DB: ${{ secrets.SERVING_DB }}
         run: python daily/automation.py
+      - name: Upload Failure Screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-screenshot
+          path: downloads/failure_screenshot.png

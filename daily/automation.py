@@ -88,6 +88,15 @@ def main():
                 po_path = download_po(page)
                 sync_registry["po"] = po_path
                 
+            except Exception as ex:
+                # Capture screenshot on failure for debugging in CI
+                screenshot_path = os.path.join(dailyConfig.DOWNLOAD_DIR, "failure_screenshot.png")
+                try:
+                    page.screenshot(path=screenshot_path)
+                    print(f"Playwright error screenshot saved to: {screenshot_path}")
+                except Exception as screenshot_err:
+                    print(f"Failed to capture screenshot: {screenshot_err}")
+                raise ex
             finally:
                 browser.close()
 
