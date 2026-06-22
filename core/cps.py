@@ -13,21 +13,20 @@ def login_to_cps(page, config=dailyConfig):
 def download_rfm_tl(page, url, filename, export_selector=None):
     print(f"navigating to {filename}...")
     page.goto(url)
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     
     if export_selector:
         print("opening export menu...")
+        page.wait_for_selector(export_selector, state="visible", timeout=60000)
         page.click(export_selector)
-        page.wait_for_load_state("networkidle")
 
     print(f"downloading {filename}...")
     with page.expect_download() as download_info:
-        # if specific export selector was used (TL), we click 'Print to Excel'
-        # if regular (RFM), we click 'Export to Excel'
-        # based on original script logic:
         if export_selector:
+             page.wait_for_selector("text=Print to Excel", state="visible", timeout=60000)
              page.click("text=Print to Excel")
         else:
+             page.wait_for_selector("text=Export to Excel", state="visible", timeout=60000)
              page.click("text=Export to Excel")
 
     download = download_info.value
