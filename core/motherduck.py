@@ -43,7 +43,8 @@ def upload_df_to_motherduck(df, table_name):
     if not token:
         raise ValueError("MD_TOKEN is not found in .env")
         
-    con = duckdb.connect(f"md:?motherduck_token={token}")
+    db_name = os.getenv("MD_DATABASE")
+    con = duckdb.connect(f"md:{db_name}?motherduck_token={token}")
     try:
         load_dataframe_to_motherduck(con, df, table_name)
     finally:
