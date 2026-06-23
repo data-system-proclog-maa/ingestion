@@ -14,11 +14,16 @@ def load_dataframe_to_motherduck(con, df, table_name):
     }
     df = df.rename(columns=clean_cols)
 
-    print(f"Syncing to MotherDuck table: {table_name}...")
+    db_name = os.getenv("MD_DATABASE")
+    schema_name = os.getenv("MD_SCHEMA")
+
+    print(f"Syncing to MotherDuck table: {db_name}.{schema_name}.{table_name}...")
     try:
+        # Ensure schema exists in the specified database
+        con.execute(f"CREATE SCHEMA IF NOT EXISTS {db_name}.{schema_name}")
         # DuckDB can register and query pandas DataFrames directly in SQL
-        con.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df")
-        print(f"Successfully loaded {len(df)} rows to MotherDuck table {table_name}")
+        con.execute(f"CREATE OR REPLACE TABLE {db_name}.{schema_name}.{table_name} AS SELECT * FROM df")
+        print(f"Successfully loaded {len(df)} rows to MotherDuck table {db_name}.{schema_name}.{table_name}")
     except Exception as e:
         print(f"Failed to load data to MotherDuck: {e}")
         raise e
