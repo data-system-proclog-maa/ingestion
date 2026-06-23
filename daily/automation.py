@@ -344,6 +344,8 @@ def main():
                         md_futures.append(executor.submit(upload_df_to_motherduck, processed_rfm_df, "rfm_processed"))
                     if processed_tl_df is not None:
                         md_futures.append(executor.submit(upload_df_to_motherduck, processed_tl_df, "tl_processed"))
+                    if ingestion_log_df is not None:
+                        md_futures.append(executor.submit(upload_df_to_motherduck, ingestion_log_df, "ingestion_log"))
                     
                     for future in concurrent.futures.as_completed(md_futures):
                         try:
