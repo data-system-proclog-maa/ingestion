@@ -49,6 +49,9 @@ jobs:
           WEEKLY_PATH: ${{ secrets.WEEKLY_PATH }}
           BASE_LAKE: ${{ secrets.BASE_LAKE }}
           SERVING_DB: ${{ secrets.SERVING_DB }}
+          MD_TOKEN: ${{ secrets.MD_TOKEN }}
+          MD_DATABASE: ${{ secrets.MD_DATABASE }}
+          MD_SCHEMA: ${{ secrets.MD_SCHEMA }}
         run: python daily/automation.py
       - name: Upload Failure Screenshot
         if: failure()
