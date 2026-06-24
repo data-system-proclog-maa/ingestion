@@ -9,4 +9,4 @@ openpyxl
 pyarrow
 sqlalchemy
 psycopg2-binary
-duckdb
+duckdb==1.5.3
