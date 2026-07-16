@@ -179,7 +179,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
                 'Auriel', 'Rifqy', 'Stheven Immanuel', 'Ferdinand', 'George', 'Admin', 
                 'Zana Chobita', 'Syifa Alifia', 'Fajar Amry', 'Nathanael', 
                 'Laurensius Adi', 'Axel', 'Melia Sari', 'Laurentius Adi',
-                'Satria Ajidarma', 'Team Kontrak'
+                'Satria Ajidarma', 'Team Kontrak', 'Jose Miguel'
             ) THEN 'PIC HO'
             WHEN Procurement_Name IN ('Fairus Mubakri', 'Irwan', 'Ady', 'Muhammad Hamka') THEN 'PIC LAR'
             WHEN Procurement_Name IN ('Rona Justhafist', 'Joko', 'Victo', 'Rakan', 'Aldi') THEN 'PIC OBI'

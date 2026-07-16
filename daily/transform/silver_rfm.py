@@ -111,7 +111,7 @@ def transform_rfm_silver(raw_path):
                 'Syifa Ramadhani Luthfi', 'Rizal Agus Fianto', 'Linda Permata Sari', 
                 'Auriel', 'Rifqy', 'Stheven Immanuel', 'Ferdinand', 'George', 'Admin', 
                 'Zana Chobita', 'Syifa Alifia', 'Fajar Amry', 'Nathanael', 
-                'Laurensius Adi', 'Axel', 'Melia Sari', 'Laurentius Adi'
+                'Laurensius Adi', 'Axel', 'Melia Sari', 'Laurentius Adi', 'Jose Miguel'
             ) THEN 'PIC HO'
             WHEN Procurement_Name IN ('Fairus Mubakri', 'Irwan', 'Ady', 'Muhammad Hamka') THEN 'PIC LAR'
             WHEN Procurement_Name IN ('Rona Justhafist', 'Joko', 'Victo', 'Rakan', 'Aldi') THEN 'PIC OBI'
