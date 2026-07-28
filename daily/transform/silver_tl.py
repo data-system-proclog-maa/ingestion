@@ -2,35 +2,26 @@ import duckdb
 import os
 import pandas as pd
 from core.config import dailyConfig
+from core.transform_utils import init_duckdb_view, fetch_normalization_df
 
 def transform_tl_silver(raw_path):
     """
     Transforms Transfer List (TL) data using DuckDB.
     Calculates lead_time and shipped_ontime markers.
     """
-    if not os.path.exists(raw_path):
-        print(f"Error: TL file {raw_path} not found.")
-        return None
-
     # Initialize DuckDB
     con = duckdb.connect()
 
     # Load TL data
     print(f"Reading TL data from {raw_path}...")
-    safe_raw_path = raw_path.replace('\\', '/')
-    con.execute(f"CREATE OR REPLACE VIEW df_tl AS SELECT * FROM read_parquet('{safe_raw_path}')")
+    if not init_duckdb_view(con, raw_path, 'df_tl'):
+        con.close()
+        return None
 
     # Fetch Normalisasi Google Sheet
     print("Fetching TL Normalisasi from Google Sheets...")
     url = dailyConfig.URL_TL_NORMALISASI
-    try:
-        df_tl_norm = pd.read_csv(url)
-        con.register('df_tl_norm', df_tl_norm)
-    except Exception as e:
-        print(f"Warning: Failed to fetch TL Normalisasi. {e}")
-        # Fallback to an empty dataframe to prevent crashes
-        df_tl_norm = pd.DataFrame(columns=['TL Number', 'remarks'])
-        con.register('df_tl_norm', df_tl_norm)
+    fetch_normalization_df(con, url, 'df_tl_norm', ['TL Number', 'remarks'])
 
     query = r"""
     SELECT 
