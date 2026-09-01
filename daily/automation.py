@@ -322,13 +322,13 @@ def main():
                         try:
                             future.result()
                         except Exception as e:
-                            print(f"CRITICAL ERROR: Postgres sync task failed: {e}")
-                            sys.exit(1) # Stop immediately if serving DB sync fails
+                            print(f"WARNING: Postgres sync task failed: {e}")
+                            break
 
             except ImportError:
                 print("SQLAlchemy or Psycopg2 not installed. Skipping Postgres sync.")
             except Exception as e:
-                print(f"Postgres connection error: {e}")
+                print(f"WARNING: Postgres connection failed: {e}")
 
         # sync to motherduck
         md_token = os.getenv("MD_TOKEN")
@@ -344,6 +344,8 @@ def main():
                         md_futures.append(executor.submit(upload_df_to_motherduck, processed_rfm_df, "rfm_processed"))
                     if processed_tl_df is not None:
                         md_futures.append(executor.submit(upload_df_to_motherduck, processed_tl_df, "tl_processed"))
+                    if gold_logistics_df is not None:
+                        md_futures.append(executor.submit(upload_df_to_motherduck, gold_logistics_df, "gold_logistics_summary"))
                     if ingestion_log_df is not None:
                         md_futures.append(executor.submit(upload_df_to_motherduck, ingestion_log_df, "ingestion_log"))
                     
