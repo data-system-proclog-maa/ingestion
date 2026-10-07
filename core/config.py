@@ -11,7 +11,7 @@ class CommonConfig:
     NAS_DOMAIN: str = os.environ["NAS_DOMAIN"]
     NAS_USERNAME: str = os.environ["NAS_USERNAME"]
     NAS_PASSWORD: str = os.environ["NAS_PASSWORD"]
-    NAS_PORT: int = 5001
+    NAS_PORT: int = int(os.getenv("NAS_PORT", "443"))
     DOWNLOAD_DIR: str = "downloads"
     BASE_LAKE: str = os.environ["BASE_LAKE"]
     
