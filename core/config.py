@@ -64,6 +64,6 @@ class biweeklyHrgaConfig(CommonConfig):
     """
     config for HRGA biweekly PO entry process
     """
-    BIWEEKLY_HRGA_PATH: str = "/home/__HRGA Biweekly PO Entry Update"
+    BIWEEKLY_HRGA_PATH: str = os.getenv("BIWEEKLY_HRGA_PATH", "/Procurement/data_system/__HRGA Biweekly PO Entry Update")
     PO_START_DATE: str = "01/01/2026"
 
