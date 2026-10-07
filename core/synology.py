@@ -24,7 +24,7 @@ def ensure_synology_path(fl, base_path):
     """
     if not base_path:
         raise ValueError("base_path is empty! Ensure DAILY_PATH is set in environment variables or config.py.")
-    current_path = base_path
+    current_path = base_path.replace('\\', '/')
     now = datetime.now(ZoneInfo("Asia/Jakarta"))
     target_path_parts = now.strftime("%Y/%m/%d").split("/")
     
