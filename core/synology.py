@@ -22,6 +22,8 @@ def ensure_synology_path(fl, base_path):
     Checks and creates the YYYY/MM/DD folder structure once.
     Returns the final target path.
     """
+    if not base_path:
+        raise ValueError("base_path is empty! Ensure DAILY_PATH is set in environment variables or config.py.")
     current_path = base_path
     now = datetime.now(ZoneInfo("Asia/Jakarta"))
     target_path_parts = now.strftime("%Y/%m/%d").split("/")

@@ -32,7 +32,7 @@ class dailyConfig(CommonConfig):
     """
     config for daily process
     """
-    DAILY_PATH: str  = os.getenv("DAILY_PATH", "")
+    DAILY_PATH: str  = os.getenv("DAILY_PATH", "/home/#Daily Procurement Entry List Ingestion")
 
     GCP_SA_KEY: str  = "gcp.json"
     BQ_DATASET: str  = os.getenv("BQ_DATASET", "")
