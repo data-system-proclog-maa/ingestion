@@ -264,7 +264,10 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
         (Qty_Order = Qty_Received) AS is_po_fully_receive,
         (PO_Receive_Location = Final_Destination_Location) AS is_transit,
 
-        -- 8. Lead Time & On-Time Performance Metrics
+        -- 8. Value Performance Marker
+        is_val AS value,
+
+        -- 9. Lead Time & On-Time Performance Metrics
         CASE 
             WHEN is_calculable AND d_used_rfm_approved IS NOT NULL AND d_po_submit IS NOT NULL 
             THEN GREATEST(0, diff_excl_lebaran(d_used_rfm_approved, d_po_submit))
@@ -354,6 +357,6 @@ if __name__ == "__main__":
     result = transform_po_silver(po_file, tl_file)
     if result is not None:
         print("\nPreview of Silver Data (First 5 rows):")
-        cols = ['PO_Number', 'TL_Number', 'all_pic', 'shipped_by', 'is_handover', 'pt', 'pr_po', 'po_sub_po_app', 'po_r_po', 'r_r_site', 'pr_po_sub_wd', 'po_sub_po_app_wd', 'ontime']
+        cols = ['PO_Number', 'TL_Number', 'all_pic', 'shipped_by', 'is_handover', 'pt', 'value', 'pr_po', 'po_sub_po_app', 'po_r_po', 'r_r_site', 'pr_po_sub_wd', 'po_sub_po_app_wd', 'ontime']
         cols = [c for c in cols if c in result.columns]
         print(result[cols].head())
