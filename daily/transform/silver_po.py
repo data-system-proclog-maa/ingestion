@@ -216,7 +216,7 @@ def transform_po_silver(raw_path, tl_path, rfm_df=None):
             max_cat_marker, max_xcmg_marker, po_row_num, default_sla_days, raw_val, 
             sum_raw_val, is_val, final_sla_days, d_used_rfm_approved, d_po_submit, 
             d_po_approval, d_receive_po, d_received_tl, d_po_required, d_req_required, 
-            is_calculable, time_date, used_receive_date, farthest_required_date
+            is_calculable, time_date, farthest_required_date
         ),
         background_update, 
         -- 1. Aging calculations
@@ -358,6 +358,6 @@ if __name__ == "__main__":
     result = transform_po_silver(po_file, tl_file)
     if result is not None:
         print("\nPreview of Silver Data (First 5 rows):")
-        cols = ['PO_Number', 'TL_Number', 'categorymerged', 'all_pic', 'shipped_by', 'is_handover', 'pt', 'value', 'pr_po', 'po_sub_po_app', 'po_r_po', 'r_r_site', 'pr_po_sub_wd', 'po_sub_po_app_wd', 'ontime']
+        cols = ['PO_Number', 'TL_Number', 'categorymerged', 'all_pic', 'shipped_by', 'is_handover', 'pt', 'value', 'used_receive_date', 'pr_po', 'po_sub_po_app', 'po_r_po', 'r_r_site', 'pr_po_sub_wd', 'po_sub_po_app_wd', 'ontime']
         cols = [c for c in cols if c in result.columns]
         print(result[cols].head())
