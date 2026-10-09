@@ -125,6 +125,19 @@ def register_silver_macros(con: duckdb.DuckDBPyConnection):
         END;
     """)
 
+    # 9. Category Merged Macro
+    con.execute(r"""
+    CREATE OR REPLACE MACRO merge_item_category(item_cat, unit_val) AS 
+        CASE 
+            WHEN upper(trim(coalesce(item_cat, ''))) LIKE '%XCMG%' THEN 'Spare Part XCMG' 
+            WHEN upper(trim(coalesce(item_cat, ''))) LIKE '%SANY%' THEN 'Spare Part SANY' 
+            WHEN upper(trim(coalesce(item_cat, ''))) LIKE '%ZS%' THEN 'Spare Part ZS' 
+            WHEN upper(trim(coalesce(item_cat, ''))) LIKE '%TIRE DT%' THEN 
+                CASE WHEN upper(trim(coalesce(unit_val, ''))) LIKE '%SET%' THEN 'Tire DT - Set' ELSE 'Tire DT - non Set' END 
+            ELSE item_cat 
+        END;
+    """)
+
 
 def init_duckdb_view(con: duckdb.DuckDBPyConnection, file_path: str, view_name: str) -> bool:
     """
