@@ -27,6 +27,9 @@ class CommonConfig:
     # External Data Sources
     URL_RFM_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=0"
     URL_TL_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1RTO11CnG1Y_eLMRrdTHLVHIvWazsxcbo2BfdstSSNLo/gviz/tq?tqx=out:csv&gid=0"
+    URL_TIMEDATE_NORMALISASI: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=1205634597"
+    URL_HOLIDAYS: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=632183983"
+    URL_LEBARAN: str = "https://docs.google.com/spreadsheets/d/1EZ7kPPvnRqvR5UN0Vi0NNLpLTNXEArzRklsVTIGb1vc/gviz/tq?tqx=out:csv&gid=1186672226"
 
 class dailyConfig(CommonConfig):
     """

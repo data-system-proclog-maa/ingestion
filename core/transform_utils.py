@@ -96,6 +96,35 @@ def register_silver_macros(con: duckdb.DuckDBPyConnection):
         END;
     """)
 
+    # 7. Lebaran Overlap Macro
+    con.execute(r"""
+    CREATE OR REPLACE MACRO lebaran_overlap(s, e, l_s, l_e) AS 
+        CASE 
+            WHEN GREATEST(s + INTERVAL 1 DAY, l_s) <= LEAST(e, l_e) 
+            THEN datediff('day', GREATEST(s + INTERVAL 1 DAY, l_s), LEAST(e, l_e)) + 1 
+            ELSE 0 
+        END;
+    """)
+
+    # 8. Days Excluding Lebaran Macro
+    con.execute(r"""
+    CREATE OR REPLACE MACRO diff_excl_lebaran(start_d, end_d) AS 
+        CASE 
+            WHEN start_d IS NULL OR end_d IS NULL THEN NULL 
+            WHEN start_d = end_d THEN 0 
+            WHEN start_d < end_d THEN 
+                datediff('day', start_d, end_d) 
+                - lebaran_overlap(start_d, end_d, DATE '2025-03-28', DATE '2025-04-13') 
+                - lebaran_overlap(start_d, end_d, DATE '2026-03-18', DATE '2026-03-31') 
+            ELSE 
+                -(
+                    datediff('day', end_d, start_d) 
+                    - lebaran_overlap(end_d, start_d, DATE '2025-03-28', DATE '2025-04-13') 
+                    - lebaran_overlap(end_d, start_d, DATE '2026-03-18', DATE '2026-03-31') 
+                ) 
+        END;
+    """)
+
 
 def init_duckdb_view(con: duckdb.DuckDBPyConnection, file_path: str, view_name: str) -> bool:
     """
