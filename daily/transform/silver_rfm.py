@@ -92,7 +92,7 @@ def transform_rfm_silver(raw_path):
         date_diff('day', try_cast(Used_RFM_Approved_Date AS DATE), current_date) AS aging_used_req_approved,
 
         -- 6. Category Merged
-        merge_item_category("Item Category", Unit) AS categorymerged
+        merge_item_category(Item_Category, Unit) AS categorymerged
 
     FROM rfm_joined
     """
