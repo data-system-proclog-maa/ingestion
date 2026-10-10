@@ -63,10 +63,13 @@ def download_po(page, config=dailyConfig):
 
     # export
     popout_arrow = "#ctl00_ctl00_ContentPlaceHolder1_ContentPlaceHolder1_ASPxRoundPanel3_menuPrintReq_DXI6_P"
+    page.wait_for_selector(popout_arrow, state="visible", timeout=60000)
     page.click(popout_arrow)
+    page.wait_for_timeout(2000)
     
     print("downloading po entry list (300s timeout)...")
     try:
+        page.wait_for_selector("text=Print to Excel", state="visible", timeout=60000)
         with page.expect_download(timeout=300000) as download_info:
             page.click("text=Print to Excel", no_wait_after=True)
             print("server generating file...")
@@ -74,7 +77,13 @@ def download_po(page, config=dailyConfig):
         download = download_info.value
         path = os.path.join("downloads", "PO Entry List.xlsx")
         download.save_as(path)
-        print(f"downloaded: {path}")
+        
+        # Validation: Check downloaded file size
+        file_size = os.path.getsize(path) if os.path.exists(path) else 0
+        if file_size < 1000:
+            raise ValueError(f"Downloaded PO Entry List is unusually small ({file_size} bytes). Server likely returned an empty or error document.")
+            
+        print(f"downloaded: {path} ({file_size} bytes)")
         return path
         
     except Exception as e:

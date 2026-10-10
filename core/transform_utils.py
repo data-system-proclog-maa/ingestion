@@ -159,7 +159,7 @@ def init_duckdb_view(con: duckdb.DuckDBPyConnection, file_path: str, view_name: 
         else:
             try:
                 df = pd.read_excel(file_path)
-                df.columns = [c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
+                df.columns = [str(c).replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
                 con.register(view_name, df)
             except Exception as e:
                 print(f"Error reading Excel file {file_path}: {e}")
@@ -167,6 +167,12 @@ def init_duckdb_view(con: duckdb.DuckDBPyConnection, file_path: str, view_name: 
     else:
         safe_path = file_path.replace('\\', '/')
         con.execute(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_parquet('{safe_path}')")
+
+    # Validate registered schema
+    cols = [col[0] for col in con.execute(f"DESCRIBE {view_name}").fetchall()]
+    if len(cols) <= 2 and any(c.lower().startswith('field') for c in cols):
+        print(f"Error: {view_name} has invalid dummy/empty schema {cols}.")
+        return False
 
     return True
 

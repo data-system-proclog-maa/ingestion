@@ -151,6 +151,11 @@ def main():
                     con.execute(f"CREATE OR REPLACE VIEW {temp_view} AS SELECT * FROM {reader_func}('{excel_path}') LIMIT 0")
                     raw_cols = [col[0] for col in con.execute(f"DESCRIBE {temp_view}").fetchall()]
                     
+                    # Guard: Validate that reader extracted real columns, not a single dummy column (like Field1) from an empty/corrupted export
+                    if len(raw_cols) <= 2 and any(c.lower().startswith('field') for c in raw_cols):
+                        con.close()
+                        raise ValueError(f"DuckDB {reader_func} detected invalid/empty schema {raw_cols} for {key}.")
+
                     # 3. Map cleaned names
                     select_parts = []
                     for col in raw_cols:
@@ -170,7 +175,9 @@ def main():
                     try:
                         import pandas as pd
                         df = pd.read_excel(excel_path)
-                        df.columns = [c.replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
+                        if len(df.columns) <= 2 and any(str(c).lower().startswith('field') or str(c).lower().startswith('unnamed') for c in df.columns):
+                            raise ValueError(f"Downloaded file {excel_path} has empty/corrupted schema: {list(df.columns)}")
+                        df.columns = [str(c).replace(' ', '_').replace('/', '_').replace('-', '_').replace('%', 'pct') for c in df.columns]
                         df.to_parquet(pq_path)
                         return key, excel_path, pq_path
                     except Exception as e2:
