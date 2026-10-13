@@ -89,7 +89,7 @@ def register_silver_macros(con: duckdb.DuckDBPyConnection):
                 'Satria Ajidarma', 'Team Kontrak', 'Jose Miguel'
             ) THEN 'PIC HO'
             WHEN buyer_name IN ('Fairus Mubakri', 'Irwan', 'Ady', 'Muhammad Hamka') THEN 'PIC LAR'
-            WHEN buyer_name IN ('Rona Justhafist', 'Joko', 'Victo', 'Rakan', 'Aldi') THEN 'PIC OBI'
+            WHEN buyer_name IN ('Rona Justhafist', 'Joko', 'Victo', 'Rakan', 'Aldi', 'Hadijah Nurul Dwi Aziza') THEN 'PIC OBI'
             WHEN buyer_name IN ('Olvan') THEN 'PIC PALU'
             WHEN contains(buyer_name, '/') THEN 'Mixed PIC'
             ELSE 'Empty'
