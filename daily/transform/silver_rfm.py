@@ -25,7 +25,7 @@ def transform_rfm_silver(raw_path):
     # Fetch Normalisasi Google Sheet
     print("Fetching RFM Normalisasi from Google Sheets...")
     url = dailyConfig.URL_RFM_NORMALISASI
-    fetch_normalization_df(con, url, 'df_norm', ['Requisition Number', 'Updated Requisition Approved Date', 'Background Update'])
+    fetch_normalization_df(con, url, 'df_norm', ['Requisition Number', 'Updated Requisition Approved Date', 'Updated Requisition Required Date', 'Background Update'])
 
     query = r"""
     WITH cleaned_rfm AS (
@@ -46,6 +46,7 @@ def transform_rfm_silver(raw_path):
         SELECT 
             cast("Requisition Number" AS VARCHAR) AS req_number,
             try_cast(regexp_replace(cast("Updated Requisition Approved Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_date,
+            try_cast(regexp_replace(cast("Updated Requisition Required Date" AS VARCHAR), ' .*', '') AS DATE) AS updated_required_date,
             "Background Update" AS background_update
         FROM df_norm
     ),
@@ -53,6 +54,7 @@ def transform_rfm_silver(raw_path):
         SELECT 
             r.*,
             n.updated_date AS manual_update_date,
+            n.updated_required_date AS manual_updated_required_date,
             n.background_update,
             -- NEW PRIORITY: Take the LATEST (MAX) of manual vs regex, else fallback
             COALESCE(
@@ -61,12 +63,18 @@ def transform_rfm_silver(raw_path):
                 r.update_rfm_regex,
                 try_cast(r.Requisition_Approved_Date AS DATE),
                 DATE '2020-01-01'
-            ) AS Used_RFM_Approved_Date
+            ) AS Used_RFM_Approved_Date,
+            COALESCE(
+                n.updated_required_date,
+                greatest(try_cast(r.PO_Required_Date AS DATE), try_cast(r.Requisition_Required_Date AS DATE)),
+                try_cast(r.PO_Required_Date AS DATE),
+                try_cast(r.Requisition_Required_Date AS DATE)
+            ) AS farthest_required_date
         FROM rfm_with_base r
         LEFT JOIN rfm_norm n ON cast(r.Requisition_Number AS VARCHAR) = n.req_number
     )
     SELECT 
-        * EXCLUDE (clean_project, project_base, raw_pq_text),
+        * EXCLUDE (clean_project, project_base, raw_pq_text, manual_updated_required_date),
         
         -- 1. Divisi Extraction
         CASE 
@@ -90,6 +98,7 @@ def transform_rfm_silver(raw_path):
         -- 5. Aging Dates
         date_diff('day', try_cast(Requisition_Approved_Date AS DATE), current_date) AS aging_req_approved,
         date_diff('day', try_cast(Used_RFM_Approved_Date AS DATE), current_date) AS aging_used_req_approved,
+        date_diff('day', current_date, farthest_required_date) AS remaining_day_ontime,
 
         -- 6. Category Merged
         merge_item_category(Item_Category, Unit) AS categorymerged
