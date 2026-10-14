@@ -6,7 +6,8 @@ from core.config import CommonConfig, dailyConfig, weeklyConfig
 import time
 
 def get_synology_connection():
-    port = int(os.getenv("NAS_PORT", str(CommonConfig.NAS_PORT)))
+    raw_port = os.getenv("NAS_PORT", "").strip()
+    port = int(raw_port) if raw_port.isdigit() else CommonConfig.NAS_PORT
     print(f"Connecting to Synology NAS {CommonConfig.NAS_DOMAIN} on port {port}...")
     return FileStation(
         CommonConfig.NAS_DOMAIN,
