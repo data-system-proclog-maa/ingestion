@@ -3,6 +3,19 @@ permissions:
   contents: read
 
 on:
+  schedule:
+    # GitHub Actions cron is ALWAYS UTC. Jakarta (WIB) is UTC+7 with no DST,
+    # so every time below is 7 hours behind the intended WIB wall clock.
+    #   06:00 WIB -> 23:00 UTC (previous day)
+    #   09:00 WIB -> 02:00 UTC
+    #   12:00 WIB -> 05:00 UTC
+    #   15:00 WIB -> 08:00 UTC
+    #   17:00 WIB -> 10:00 UTC
+    - cron: '0 23 * * *'
+    - cron: '0 2 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch: # Allows manual trigger
     inputs:
       manual_reason:
@@ -10,9 +23,16 @@ on:
         required: false
         default: 'Manual test'
 
+# Five runs per day can overlap if one hangs (login stall, slow NAS upload),
+# which would double-load Postgres/MotherDuck. Serialise them instead.
+concurrency:
+  group: daily-sync
+  cancel-in-progress: false
+
 jobs:
   sync_data:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
